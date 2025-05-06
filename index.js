@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(
   cors({
-    origin: "https://frontend2-axfo.onrender.com", // Frontend URL
+    origin: "https://frontend3-o8cd.onrender.com", // Frontend URL
     credentials: true, // Cookie’lar uchun
   })
 );
