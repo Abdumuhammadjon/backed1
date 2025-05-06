@@ -18,6 +18,14 @@ const PORT = process.env.PORT || 5000;
 //   sinftest7: "http://localhost:5000" // O'zingizning sayt URL manzilini qo‘ying
 // };
 
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect('https://' + 'frontend3-o8cd.onrender.com' + req.url);
+  }
+  next();
+});
+
+
 app.use(express.json());
 app.use(
   cors({
