@@ -74,4 +74,4 @@ app.get("/", async (req, res) => {
 // Serverni ishga tushirish
 app.listen(PORT, () => {
   console.log(`🚀 Server ${PORT} portda ishlayapti`);
-});    kodni tekshir va moslab ber 
+});
