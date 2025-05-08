@@ -37,12 +37,12 @@ const register = async (req, res) => {
 
     res.status(201).json({ message: "Foydalanuvchi muvaffaqiyatli ro‘yxatdan o‘tdi!", userId: user.id, role: user.role });
   } catch (error) {
-    console.error("Ro‘yxatdan o‘tishda xatolik:", error);
+    // console.error("Ro‘yxatdan o‘tishda xatolik:", error);
     res.status(500).json({ message: "Server xatosi" });
   }
 };
 
-// 📌 Kirish (Login)
+
 // 📌 Kirish (Login)
 const login = async (req, res) => {
   try {
