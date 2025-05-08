@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 });
 
 // Health-check uchun yengil route (UptimeRobot uchun)
-app.get("/ping", (req, res) => {
+app.get("/health", (req, res) => {
   res.status(200).send("✅ Backend ishlayapti. Health check OK.");
 });
 
