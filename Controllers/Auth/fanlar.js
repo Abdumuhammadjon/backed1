@@ -26,7 +26,6 @@ const getAdmins = async (req, res) => {
 // 📌 Yangi fan qo‘shish
 const createSubject = async (req, res) => {
   const { name, admin } = req.body;
-  console.log(req.body);
 
   if (!name || !admin) {
     return res.status(400).json({ error: "Barcha maydonlarni to‘ldiring!" });
@@ -83,7 +82,7 @@ const getSubjects = async (req, res) => {
 
     res.status(200).json(data);
   } catch (err) {
-    console.error("Server xatosi:", err);
+    // console.error("Server xatosi:", err);
     res.status(500).json({ error: "Serverda ichki xatolik yuz berdi!" });
   }
 };
@@ -119,7 +118,7 @@ const getQuestionsBySubject = async (req, res) => {
   try {
     // 1. Frontenddan kelgan subject ID ni olish
     const { id } = req.params;
-    console.log("Kelgan subject ID:", id);
+    // console.log("Kelgan subject ID:", id);
 
     // 2. Agar ID kelmagan bo'lsa, xato qaytarish
     if (!id) {
@@ -153,7 +152,7 @@ const getQuestionsBySubject = async (req, res) => {
 
       // 7. Agar variantlarni olishda xatolik bo'lsa, xato qaytarish
       if (optionsError) {
-        console.error("Variantlarni olishda xatolik:", optionsError);
+        // console.error("Variantlarni olishda xatolik:", optionsError);
         return res.status(500).json({ error: "Variantlarni olishda xatolik!" });
       }
 
@@ -167,7 +166,7 @@ const getQuestionsBySubject = async (req, res) => {
     
   } catch (err) {
     // 10. Umumiy xatolik bo'lsa, server xatosi qaytarish
-    console.error("Server xatosi:", err);
+    // console.error("Server xatosi:", err);
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
@@ -238,7 +237,7 @@ const checkUserAnswers = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Server xatosi:", err);
+    // console.error("Server xatosi:", err);
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
@@ -248,7 +247,7 @@ const getUserResults = async (req, res) => {
   try {
     const userId = req.params.id;
     const { subjectId } = req.query;
-    console.log('userId:', userId, 'subjectId:', subjectId);
+    // console.log('userId:', userId, 'subjectId:', subjectId);
 
     if (!userId) {
       return res.status(400).json({ error: "Foydalanuvchi ID majburiy!" });
@@ -302,7 +301,7 @@ const getUserResults = async (req, res) => {
       message: "Natijalar muvaffaqiyatli olindi!"
     });
   } catch (err) {
-    console.error("Server xatosi:", err);
+    // console.error("Server xatosi:", err);
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
@@ -352,7 +351,7 @@ const getUserResult = async (req, res) => {
     
 
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ error: 'Server xatosi' });
   }
 };
@@ -384,14 +383,14 @@ const deleteQuestion = async (req, res) => {
 
     res.status(200).json({ message: 'Savol muvaffaqiyatli o\'chirildi' });
   } catch (error) {
-    console.error('Error deleting question:', error);
+    // console.error('Error deleting question:', error);
     res.status(500).json({ error: 'Savolni o\'chirishda xatolik yuz berdi' });
   }
 };
 
 const deleteUserResult = async (req, res) => {
   const resultId  = req.params.id;
-  console.log(resultId);
+  // console.log(resultId);
   
   const userId = req.user?.id; // Token orqali aniqlangan user ID
 
