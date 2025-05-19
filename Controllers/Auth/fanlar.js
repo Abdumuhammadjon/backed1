@@ -114,11 +114,19 @@ const deleteSubject = async (req, res) => {
   res.json({ message: "Fan o‘chirildi!" });
 };
 
+// Tasodifiy aralashtirish uchun Fisher-Yates shuffle algoritmi
+const shuffleArray = (array) => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+};
+
 const getQuestionsBySubject = async (req, res) => {
   try {
     // 1. Frontenddan kelgan subject ID ni olish
     const { id } = req.params;
-    // console.log("Kelgan subject ID:", id);
 
     // 2. Agar ID kelmagan bo'lsa, xato qaytarish
     if (!id) {
@@ -126,10 +134,9 @@ const getQuestionsBySubject = async (req, res) => {
     }
 
     // 3. Questions jadvalidan savollarni olish
-    // subject_id ga mos keladigan savollar va ularning faqat id va question_text ni olamiz
     const { data: questions, error: questionsError } = await supabase
       .from("questions")
-      .select("id, question_text, created_at") // question_text jadvalda shunday nomlangan
+      .select("id, question_text, created_at")
       .eq("subject_id", id);
 
     // 4. Agar savollarni olishda xatolik bo'lsa, xato qaytarish
@@ -143,33 +150,35 @@ const getQuestionsBySubject = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    // 6. Har bir savol uchun options jadvalidan variantlarni olish
-    for (let question of questions) {
+    // 6. Savollarni tasodifiy tartibda aralashtirish
+    const shuffledQuestions = shuffleArray([...questions]);
+
+    // 7. Har bir savol uchun options jadvalidan variantlarni olish
+    for (let question of shuffledQuestions) {
       const { data: options, error: optionsError } = await supabase
         .from("options")
-        .select("id, option_text, is_correct") // option_text va is_correct ni olamiz
-        .eq("question_id", question.id); // question.id orqali variantlarni filtrlaymiz
+        .select("id, option_text, is_correct")
+        .eq("question_id", question.id);
 
-      // 7. Agar variantlarni olishda xatolik bo'lsa, xato qaytarish
+      // 8. Agar variantlarni olishda xatolik bo'lsa, xato qaytarish
       if (optionsError) {
-        // console.error("Variantlarni olishda xatolik:", optionsError);
+        console.error("Variantlarni olishda xatolik:", optionsError);
         return res.status(500).json({ error: "Variantlarni olishda xatolik!" });
       }
 
-      // 8. Savol obyektiga variantlarni qo'shish
-      question.options = options || []; // Agar variantlar bo'lmasa bo'sh array
+      // 9. Variantlarni tasodifiy tartibda aralashtirish
+      question.options = shuffleArray([...options]) || [];
     }
 
-    // 9. Natijani frontendga yuborish
-  
-    return res.status(200).json(questions);
-    
+    // 10. Natijani frontendga yuborish
+    return res.status(200).json(shuffledQuestions);
   } catch (err) {
-    // 10. Umumiy xatolik bo'lsa, server xatosi qaytarish
-    // console.error("Server xatosi:", err);
+    // 11. Umumiy xatolik bo'lsa, server xatosi qaytarish
+    console.error("Server xatosi:", err);
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
-};
+};   // 3. Questions jadvalidan savollarni olish
+
 
 const checkUserAnswers = async (req, res) => {
   try {
