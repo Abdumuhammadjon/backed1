@@ -8,7 +8,7 @@ const redis = new Redis({
 
 redis.ping()
   .then(() => console.log('✅ Redis-ga muvaffaqiyatli ulandi!'))
-  .catch(err => console.error('❌ Redis xatosi:', err));
+  .catch(err => console.error('❌ Redis xatosi:', "ishlamayapti",  err));
 
 
 
