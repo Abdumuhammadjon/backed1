@@ -464,6 +464,7 @@ const getUserResultsPDF = async (req, res) => {
     });
 
     doc.end();
+    res.status(200).json(results);
   } catch (err) {
     console.error("PDF generatsiyada xatolik:", err);
     res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
