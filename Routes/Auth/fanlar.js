@@ -31,8 +31,8 @@ router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
-router.get("/UserResults/pdf/:id", getUserResultsPDF  )
-router.get("/UserResults/pdf", getUserResultsPDF  )
+router.get("/userResults/pdf/:id", getUserResultsPDF  )
+router.get("/userResults/pdf", getUserResultsPDF  )
 
 router.delete("/question/:id",  deleteQuestion )
 router.delete("/userResult/:id",  deleteUserResult )
