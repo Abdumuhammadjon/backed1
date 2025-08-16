@@ -4,8 +4,17 @@ const {
   createSubject,
   getSubjects,
   updateSubject,
-  deleteSubject, checkUserAnswers  , getUserResultsPDF,  deleteUserResult,  deleteQuestion,  getUserResults,  getUserResult, getQuestionsBySubject,
+  deleteSubject, checkUserAnswers  ,  deleteUserResult,  deleteQuestion,  getUserResults,  getUserResult, getQuestionsBySubject,
 } = require("../../Controllers/Auth/fanlar");
+
+
+// const {
+//   createSubject,
+//   getSubjects,
+//   updateSubject,
+//   deleteSubject, checkUserAnswers  , getUserResultsPDF,  deleteUserResult,  deleteQuestion,  getUserResults,  getUserResult, getQuestionsBySubject,
+// } = require("../../Controllers/Auth/fanlar");
+
 const {
    getAdmins, 
 } = require("../../Controllers/Auth/fanlar")
@@ -22,8 +31,8 @@ router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
-router.get("/UserResults/pdf/:id", getUserResultsPDF  )
-router.get("/UserResults", getUserResultsPDF  )
+// router.get("/UserResults/pdf/:id", getUserResultsPDF  )
+// router.get("/UserResults", getUserResultsPDF  )
 
 router.delete("/question/:id",  deleteQuestion )
 router.delete("/userResult/:id",  deleteUserResult )
