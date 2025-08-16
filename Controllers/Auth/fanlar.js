@@ -400,6 +400,76 @@ const deleteQuestion = async (req, res) => {
   }
 };
 
+const getUserResultsPDF = async (req, res) => {
+  try {
+    const { userId, subjectId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ error: "Foydalanuvchi ID majburiy!" });
+    }
+
+    let query = supabase
+      .from("results")
+      .select(`
+        id,
+        user_id,
+        subject_id,
+        correct_answers,
+        total_questions,
+        score_percentage,
+        created_at,
+        users:users!user_id(username),
+        subjects:subjects!subject_id(name)
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
+    }
+
+    const { data: results, error } = await query;
+
+    if (error) {
+      console.error("Natijalarni olishda xatolik:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ message: "Natijalar topilmadiiii!" });
+    }
+
+    const doc = new PDFDocument({ margin: 50 });
+    let buffers = [];
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => {
+      let pdfData = Buffer.concat(buffers);
+      res.writeHeader("Content-Type", "application/pdf");
+      res.writeHeader("Content-Disposition", `attachment; filename=user_results_${userId}.pdf`);
+      res.status(200).send(pdfData);
+    });
+
+    doc.fontSize(20).text("Foydalanuvchi Natijalari", { align: "center" });
+    doc.moveDown();
+
+    results.forEach((result, index) => {
+      doc.fontSize(14).text(`Natija #${index + 1}`, { underline: true });
+      doc.fontSize(12).text(`Foydalanuvchi: ${result.users?.username || "Noma'lum"}`);
+      doc.text(`Fan: ${result.subjects?.name || "Noma'lum"}`);
+      doc.text(`To'g'ri javoblar: ${result.correct_answers}`);
+      doc.text(`Umumiy savollar: ${result.total_questions}`);
+      doc.text(`Foiz: ${result.score_percentage}%`);
+      doc.text(`Sana: ${new Date(result.created_at).toLocaleString("uz-UZ")}`);
+      doc.moveDown();
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error("PDF generatsiyada xatolik:", err);
+    res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
+  }
+};
+
 const deleteUserResult = async (req, res) => {
   const resultId  = req.params.id;
   // console.log(resultId);
@@ -441,7 +511,7 @@ const deleteUserResult = async (req, res) => {
 
 
 
-module.exports = { createSubject, deleteUserResult,  getUserResults, deleteQuestion, getUserResult,  getSubjects, updateSubject, getQuestionsBySubject, checkUserAnswers ,  deleteSubject,  getAdmins };
+module.exports = { createSubject, deleteUserResult, getUserResultsPDF, getUserResults, deleteQuestion, getUserResult,  getSubjects, updateSubject, getQuestionsBySubject, checkUserAnswers ,  deleteSubject,  getAdmins };
 
 
 // const getAdmins = async (req, res) => {
