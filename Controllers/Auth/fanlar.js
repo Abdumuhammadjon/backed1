@@ -404,7 +404,9 @@ const deleteQuestion = async (req, res) => {
 
 const getUserResultsPDF = async (req, res) => {
   try {
-    const { userId, subjectId } = req.query;
+    const {  subjectId } = req.query;
+    const userId = req.params.id || req.query.userId;
+
 
     if (!userId) {
       // JSON qaytariladi, shuning uchun frontendda ham tekshirish kerak
