@@ -404,13 +404,16 @@ const deleteQuestion = async (req, res) => {
 
 const getUserResultsPDF = async (req, res) => {
   try {
-    const {  subjectId } = req.query;
-    const userId = req.params.id || req.query.userId;
-
+    const { userId, subjectId } = req.query;
 
     if (!userId) {
-      // JSON qaytariladi, shuning uchun frontendda ham tekshirish kerak
-      return res.status(400).json({ error: "Foydalanuvchi ID majburiy!" });
+      // ❌ JSON yubormang
+      const doc = new PDFDocument();
+      res.setHeader("Content-Type", "application/pdf");
+      doc.pipe(res);
+      doc.text("❌ Foydalanuvchi ID majburiy!");
+      doc.end();
+      return;
     }
 
     let query = supabase
@@ -433,16 +436,16 @@ const getUserResultsPDF = async (req, res) => {
 
     const { data: results, error } = await query;
 
-    if (error) {
-      console.error("Natijalarni olishda xatolik:", error);
-      return res.status(500).json({ error: error.message });
+    if (error || !results || results.length === 0) {
+      const doc = new PDFDocument();
+      res.setHeader("Content-Type", "application/pdf");
+      doc.pipe(res);
+      doc.text("❌ Natijalar topilmadi yoki xatolik yuz berdi!");
+      doc.end();
+      return;
     }
 
-    if (!results || results.length === 0) {
-      return res.status(404).json({ message: "Natijalar topilmadi!" });
-    }
-
-    // PDF qaytarish
+    // ✅ PDF yaratish
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -457,9 +460,9 @@ const getUserResultsPDF = async (req, res) => {
 
     results.forEach((result, index) => {
       doc.fontSize(14).text(`Natija #${index + 1}`, { underline: true });
-      doc.fontSize(12).text(`Foydalanuvchi: ${String(result.users?.username || "Noma'lum")}`);
-      doc.text(`Fan: ${String(result.subjects?.name || "Noma'lum")}`);
-      doc.text(`To'g'ri javoblar: ${result.correct_answers}`);
+      doc.fontSize(12).text(`Foydalanuvchi: ${result.users?.username || "Noma'lum"}`);
+      doc.text(`Fan: ${result.subjects?.name || "Noma'lum"}`);
+      doc.text(`To‘g‘ri javoblar: ${result.correct_answers}`);
       doc.text(`Umumiy savollar: ${result.total_questions}`);
       doc.text(`Foiz: ${result.score_percentage}%`);
       doc.text(`Sana: ${new Date(result.created_at).toLocaleString("uz-UZ")}`);
@@ -468,10 +471,12 @@ const getUserResultsPDF = async (req, res) => {
 
     doc.end();
   } catch (err) {
-    console.error("PDF generatsiyada xatolik:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
-    }
+    // ❌ JSON yubormaslik kerak
+    const doc = new PDFDocument();
+    res.setHeader("Content-Type", "application/pdf");
+    doc.pipe(res);
+    doc.text("❌ PDF generatsiyada xatolik yuz berdi!");
+    doc.end();
   }
 };
 
