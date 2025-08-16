@@ -16,6 +16,6 @@ redisClient.on('error', (err) => console.log('❌ Redis xatolik:', err));
 
 redisClient.connect()
     .then(() => console.log('✅ Redis TLS orqali muvaffaqiyatli ulandi'))
-    .catch((err) => console.log('❌ Redis TLS ulanishida xatolik:', err));
+    .catch((err) => console.log('❌ Redis TLS ulanishida xatolikllllllllllaaaaaar:', err));
 
     module.exports=  redisClient;
