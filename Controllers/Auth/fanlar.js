@@ -408,7 +408,7 @@ const getUserResultsPDF = async (req, res) => {
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename=user_results_${userId || "unknown"}.pdf`
+    inline; filename=user_results_${userId || "unknown"}.pdf`
   );
 
   const doc = new PDFDocument({ margin: 50 });
