@@ -400,11 +400,14 @@ const deleteQuestion = async (req, res) => {
   }
 };
 
+
+
 const getUserResultsPDF = async (req, res) => {
   try {
     const { userId, subjectId } = req.query;
 
     if (!userId) {
+      // JSON qaytariladi, shuning uchun frontendda ham tekshirish kerak
       return res.status(400).json({ error: "Foydalanuvchi ID majburiy!" });
     }
 
@@ -424,9 +427,7 @@ const getUserResultsPDF = async (req, res) => {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
-    if (subjectId) {
-      query = query.eq("subject_id", subjectId);
-    }
+    if (subjectId) query = query.eq("subject_id", subjectId);
 
     const { data: results, error } = await query;
 
@@ -439,7 +440,7 @@ const getUserResultsPDF = async (req, res) => {
       return res.status(404).json({ message: "Natijalar topilmadi!" });
     }
 
-    // PDF yaratish
+    // PDF qaytarish
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -454,8 +455,8 @@ const getUserResultsPDF = async (req, res) => {
 
     results.forEach((result, index) => {
       doc.fontSize(14).text(`Natija #${index + 1}`, { underline: true });
-      doc.fontSize(12).text(`Foydalanuvchi: ${result.users?.username || "Noma'lum"}`);
-      doc.text(`Fan: ${result.subjects?.name || "Noma'lum"}`);
+      doc.fontSize(12).text(`Foydalanuvchi: ${String(result.users?.username || "Noma'lum")}`);
+      doc.text(`Fan: ${String(result.subjects?.name || "Noma'lum")}`);
       doc.text(`To'g'ri javoblar: ${result.correct_answers}`);
       doc.text(`Umumiy savollar: ${result.total_questions}`);
       doc.text(`Foiz: ${result.score_percentage}%`);
@@ -463,12 +464,15 @@ const getUserResultsPDF = async (req, res) => {
       doc.moveDown();
     });
 
-    doc.end(); // 🚀 PDF tugatiladi
+    doc.end();
   } catch (err) {
     console.error("PDF generatsiyada xatolik:", err);
-    res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
+    }
   }
 };
+
 
 
 
