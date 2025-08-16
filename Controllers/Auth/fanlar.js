@@ -412,7 +412,7 @@ const getUserResultsPDF = async (req, res) => {
     }
 
     if (!results || results.length === 0) {
-      return res.status(404).json({ message: "Natijalar topilmadi!" });
+      return res.status(404).json({ message: "Natijalar topilmadiiii!" });
     }
 
     const doc = new PDFDocument({ margin: 50 });
