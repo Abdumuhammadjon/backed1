@@ -20,9 +20,11 @@ router.put("/subjects/:id", updateSubject);
 router.delete("/subjects/:id", deleteSubject);
 router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
-router.get("/userResults/pdf/:id", getUserResultsPDF  )
 router.get("/userResults",  getUserResult )
-router.get("/userResults", getUserResultsPDF  )
+
+router.get("/UserResults/pdf/:id", getUserResultsPDF  )
+router.get("/UserResults", getUserResultsPDF  )
+
 router.delete("/question/:id",  deleteQuestion )
 router.delete("/userResult/:id",  deleteUserResult )
 module.exports = router;
