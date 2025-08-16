@@ -436,18 +436,15 @@ const getUserResultsPDF = async (req, res) => {
     }
 
     if (!results || results.length === 0) {
-      return res.status(404).json({ message: "Natijalar topilmadiiii!" });
+      return res.status(404).json({ message: "Natijalar topilmadi!" });
     }
 
+    // PDF tayyorlash
     const doc = new PDFDocument({ margin: 50 });
-    let buffers = [];
-    doc.on("data", buffers.push.bind(buffers));
-    doc.on("end", () => {
-      let pdfData = Buffer.concat(buffers);
-      res.writeHeader("Content-Type", "application/pdf");
-      res.writeHeader("Content-Disposition", `attachment; filename=user_results_${userId}.pdf`);
-      res.status(200).send(pdfData);
-    });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=user_results_${userId}.pdf`);
+
+    doc.pipe(res);
 
     doc.fontSize(20).text("Foydalanuvchi Natijalari", { align: "center" });
     doc.moveDown();
@@ -463,13 +460,14 @@ const getUserResultsPDF = async (req, res) => {
       doc.moveDown();
     });
 
-    doc.end();
-    res.status(200).json(results);
+    doc.end(); // PDF oqimini yopish
+
   } catch (err) {
     console.error("PDF generatsiyada xatolik:", err);
     res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
   }
 };
+
 
 const deleteUserResult = async (req, res) => {
   const resultId  = req.params.id;
