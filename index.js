@@ -9,6 +9,7 @@ require("dotenv").config();
 const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require("cookie-parser");
+const PDFDocument = require("pdfkit");
 
 const PORT = process.env.PORT || 5000;
 
@@ -24,6 +25,18 @@ app.use((req, res, next) => {
 app.get("/health", (req, res) => {
   res.status(200).send("✅ Backend ishlayapti. Health check OK.");
 });
+
+app.get("/test-pdf", (req, res) => {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "inline; filename=test.pdf");
+
+  const doc = new PDFDocument();
+  doc.pipe(res);
+
+  doc.fontSize(25).text("Salom! Bu test PDF fayl");
+  doc.end();
+});
+
 
 app.use(express.json());
 app.use(cors({
