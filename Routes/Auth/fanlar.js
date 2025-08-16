@@ -20,7 +20,7 @@ router.put("/subjects/:id", updateSubject);
 router.delete("/subjects/:id", deleteSubject);
 router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
-router.get("/userResults/pdf/:id", getUserResultsPDF  )
+router.get("/userResults/:id", getUserResultsPDF  )
 router.get("/userResults",  getUserResult )
 router.delete("/question/:id",  deleteQuestion )
 router.delete("/userResult/:id",  deleteUserResult )
