@@ -439,12 +439,15 @@ const getUserResultsPDF = async (req, res) => {
       return res.status(404).json({ message: "Natijalar topilmadi!" });
     }
 
-    // PDF tayyorlash
-    const doc = new PDFDocument({ margin: 50 });
+    // 📌 PDF sozlash
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=user_results_${userId}.pdf`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=user_results_${userId}.pdf`
+    );
 
-    doc.pipe(res);
+    const doc = new PDFDocument({ margin: 50 });
+    doc.pipe(res); // response’ga bevosita stream
 
     doc.fontSize(20).text("Foydalanuvchi Natijalari", { align: "center" });
     doc.moveDown();
@@ -467,6 +470,7 @@ const getUserResultsPDF = async (req, res) => {
     res.status(500).json({ error: "PDF generatsiyada xatolik yuz berdi!" });
   }
 };
+s
 
 
 const deleteUserResult = async (req, res) => {
