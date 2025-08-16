@@ -401,21 +401,28 @@ const deleteQuestion = async (req, res) => {
 };
 
 
-
 const getUserResultsPDF = async (req, res) => {
-  try {
-    const { userId, subjectId } = req.query;
+  const { userId, subjectId } = req.query;
 
+  // ⚠️ Headerlar faqat PDF formatida bo‘lsin
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=user_results_${userId || "unknown"}.pdf`
+  );
+
+  const doc = new PDFDocument({ margin: 50 });
+  doc.pipe(res);
+
+  try {
+    // ✅ Agar userId bo‘lmasa ham JSON qaytarmaymiz
     if (!userId) {
-      // ❌ JSON yubormang
-      const doc = new PDFDocument();
-      res.setHeader("Content-Type", "application/pdf");
-      doc.pipe(res);
-      doc.text("❌ Foydalanuvchi ID majburiy!");
+      doc.fontSize(16).fillColor("red").text("❌ Foydalanuvchi ID majburiy!");
       doc.end();
       return;
     }
 
+    // ✅ Ma’lumotlarni olish
     let query = supabase
       .from("results")
       .select(`
@@ -436,52 +443,52 @@ const getUserResultsPDF = async (req, res) => {
 
     const { data: results, error } = await query;
 
-    if (error || !results || results.length === 0) {
-      const doc = new PDFDocument();
-      res.setHeader("Content-Type", "application/pdf");
-      doc.pipe(res);
-      doc.text("❌ Natijalar topilmadi yoki xatolik yuz berdi!");
+    if (error) {
+      doc.fontSize(16).fillColor("red").text("❌ Natijalarni olishda xatolik!");
+      doc.text(error.message);
       doc.end();
       return;
     }
 
-    // ✅ PDF yaratish
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=user_results_${userId}.pdf`
-    );
+    if (!results || results.length === 0) {
+      doc.fontSize(16).fillColor("orange").text("⚠️ Natijalar topilmadi!");
+      doc.end();
+      return;
+    }
 
-    const doc = new PDFDocument({ margin: 50 });
-    doc.pipe(res);
-
-    doc.fontSize(20).text("Foydalanuvchi Natijalari", { align: "center" });
+    // ✅ PDF sarlavha
+    doc.fontSize(20).fillColor("black").text("📊 Foydalanuvchi Natijalari", {
+      align: "center",
+    });
     doc.moveDown();
 
+    // ✅ Har bir natijani chiqarish
     results.forEach((result, index) => {
-      doc.fontSize(14).text(`Natija #${index + 1}`, { underline: true });
-      doc.fontSize(12).text(`Foydalanuvchi: ${result.users?.username || "Noma'lum"}`);
-      doc.text(`Fan: ${result.subjects?.name || "Noma'lum"}`);
-      doc.text(`To‘g‘ri javoblar: ${result.correct_answers}`);
-      doc.text(`Umumiy savollar: ${result.total_questions}`);
-      doc.text(`Foiz: ${result.score_percentage}%`);
-      doc.text(`Sana: ${new Date(result.created_at).toLocaleString("uz-UZ")}`);
+      doc
+        .fontSize(14)
+        .fillColor("blue")
+        .text(`Natija #${index + 1}`, { underline: true });
+
+      doc.fontSize(12).fillColor("black");
+      doc.text(`👤 Foydalanuvchi: ${result.users?.username || "Noma'lum"}`);
+      doc.text(`📘 Fan: ${result.subjects?.name || "Noma'lum"}`);
+      doc.text(`✅ To‘g‘ri javoblar: ${result.correct_answers}`);
+      doc.text(`❓ Umumiy savollar: ${result.total_questions}`);
+      doc.text(`📈 Foiz: ${result.score_percentage}%`);
+      doc.text(
+        `📅 Sana: ${new Date(result.created_at).toLocaleString("uz-UZ")}`
+      );
       doc.moveDown();
     });
 
-    doc.end();
+    doc.end(); // 🚀 PDF tugadi
   } catch (err) {
-    // ❌ JSON yubormaslik kerak
-    const doc = new PDFDocument();
-    res.setHeader("Content-Type", "application/pdf");
-    doc.pipe(res);
-    doc.text("❌ PDF generatsiyada xatolik yuz berdi!");
+    // ❌ JSON emas, PDF ko‘rinishida xatoni qaytaramiz
+    doc.fontSize(16).fillColor("red").text("❌ PDF generatsiyada xatolik!");
+    doc.text(err.message);
     doc.end();
   }
 };
-
-
-
 
 const deleteUserResult = async (req, res) => {
   const resultId  = req.params.id;
