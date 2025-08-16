@@ -32,7 +32,7 @@ router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
 router.get("/UserResults/pdf/:id", getUserResultsPDF  )
-router.get("/UserResults", getUserResultsPDF  )
+router.get("/UserResults/pdf", getUserResultsPDF  )
 
 router.delete("/question/:id",  deleteQuestion )
 router.delete("/userResult/:id",  deleteUserResult )
