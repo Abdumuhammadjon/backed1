@@ -28,32 +28,51 @@ router.get("/userResults",  getUserResult )
 // router.get("/userResults/pdf/:id", getUserResultsPDF  )
 // router.get("/userResults/pdf", getUserResultsPDF  )
  
-router.get('/user-results.pdf', async (req, res, next) => {
+router.get("/user-results/:userId", async (req, res, next) => {
   try {
-    // PDF response header’lari
-    res.setHeader('Content-Type', 'application/pdf');
-    // "inline" — brauzerda ochadi; "attachment" — yuklaydi
-    res.setHeader('Content-Disposition', 'attachment; filename="user-results.pdf"');
+    const { userId } = req.params;
 
-    // PDF’ni stream qilish
-    const doc = await getUserResultsPDF(
-      chunk => res.write(chunk),
-      () => res.end()
+    if (!userId) {
+      return res.status(400).json({ error: "userId majburiy!" });
+    }
+
+    // Supabase’dan ma’lumot olish
+    const { data, error } = await supabase
+      .from("results")
+      .select("subject_id, correct_answers, total_questions, score_percentage, created_at")
+      .eq("user_id", userId);
+
+    if (error) throw error;
+
+    // PDF tayyorlash
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="user-${userId}-results.pdf"`
     );
 
-    // ixtiyoriy: xatolarni ushlash
-    if (doc && doc.on) {
-      doc.on('error', (err) => {
-        // agar stream paytida xato bo'lsa, response’ni toza yopamiz
-        if (!res.headersSent) {
-          res.status(500);
-        }
-        try { res.end(); } catch (_) {}
-        next(err);
-      });
-    }
+    const doc = new PDFDocument();
+    doc.pipe(res);
+
+    doc.fontSize(20).text(`User ${userId} natijalari`, { align: "center" });
+    doc.moveDown();
+
+    data.forEach((result, idx) => {
+      doc
+        .fontSize(12)
+        .text(
+          `${idx + 1}. Fan: ${result.subject_id}
+           To‘g‘ri javoblar: ${result.correct_answers}/${result.total_questions}
+           Foiz: ${result.score_percentage}%
+           Sana: ${new Date(result.created_at).toLocaleString()}`
+        );
+      doc.moveDown();
+    });
+
+    doc.end();
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ error: "PDF yaratishda xato yuz berdi" });
   }
 });
 
