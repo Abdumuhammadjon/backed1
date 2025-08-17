@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { supabase } = require("../../config/supabaseClient");
 
+const PDFDocument = require("pdfkit");
 const {
   createSubject,
   getSubjects,
