@@ -27,7 +27,6 @@ router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
 /
- 
 router.get("/user-results/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
@@ -35,10 +34,17 @@ router.get("/user-results/:subjectId", async (req, res) => {
       return res.status(400).json({ error: "subjectId majburiy" });
     }
 
-    // Supabase’dan subjectId bo‘yicha natijalar
+    // results + users join qilish
     const { data, error } = await supabase
       .from("results")
-      .select("user_id, correct_answers, total_questions, score_percentage, created_at")
+      .select(`
+        user_id,
+        correct_answers,
+        total_questions,
+        score_percentage,
+        created_at,
+        users(username)
+      `)
       .eq("subject_id", subjectId)
       .order("created_at", { ascending: false });
 
@@ -47,32 +53,46 @@ router.get("/user-results/:subjectId", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    // PDF tayyorlash
+    // PDF sozlamalari
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `inline; filename="subject-${subjectId}-results.pdf"`
     );
 
-    const doc = new PDFDocument({ margin: 40 });
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
     doc.pipe(res);
 
-    doc.fontSize(18).text(`Fan bo‘yicha natijalar`, { align: "center" });
-    doc.moveDown().fontSize(12).text(`Subject ID: ${subjectId}`).moveDown();
+    // Header
+    doc.fontSize(18).text("📊 Fan bo‘yicha natijalar", { align: "center" });
+    doc.moveDown().fontSize(12).text(`Subject ID: ${subjectId}`, { align: "center" });
+    doc.moveDown(2);
 
     if (!data || data.length === 0) {
-      doc.text("Bu subject uchun natijalar topilmadi.");
+      doc.text("❌ Bu subject uchun natijalar topilmadi.");
       doc.end();
       return;
     }
 
-    // Foydalanuvchilar natijalarini chiqarish
+    // Jadval sarlavhalari
+    doc.fontSize(12).font("Helvetica-Bold");
+    doc.text("№", 50, doc.y, { continued: true });
+    doc.text("Username", 80, doc.y, { width: 150, continued: true });
+    doc.text("To‘g‘ri/Umumiy", 250, doc.y, { width: 120, continued: true });
+    doc.text("Foiz", 370, doc.y, { width: 60, continued: true });
+    doc.text("Sana", 440, doc.y);
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // chiziq chizish
+
+    // Jadval ichidagi ma'lumotlar
+    doc.font("Helvetica");
     data.forEach((r, i) => {
-      doc.text(`${i + 1}) User ID: ${r.user_id}`);
-      doc.text(`   To‘g‘ri: ${r.correct_answers} / ${r.total_questions}`);
-      doc.text(`   Foiz: ${r.score_percentage}%`);
-      doc.text(`   Sana: ${new Date(r.created_at).toLocaleString()}`);
-      doc.moveDown(0.8);
+      doc.text(i + 1, 50, doc.y, { continued: true });
+      doc.text(r.users?.username || r.user_id, 80, doc.y, { width: 150, continued: true });
+      doc.text(`${r.correct_answers}/${r.total_questions}`, 250, doc.y, { width: 120, continued: true });
+      doc.text(`${r.score_percentage}%`, 370, doc.y, { width: 60, continued: true });
+      doc.text(new Date(r.created_at).toLocaleDateString(), 440, doc.y);
+      doc.moveDown(0.5);
     });
 
     doc.end();
