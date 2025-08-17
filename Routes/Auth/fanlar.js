@@ -28,51 +28,64 @@ router.get("/userResults",  getUserResult )
 // router.get("/userResults/pdf/:id", getUserResultsPDF  )
 // router.get("/userResults/pdf", getUserResultsPDF  )
  
-router.get("/user-results/:userId", async (req, res, next) => {
+router.get("/user-results/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+    if (!userId) return res.status(400).json({ error: "userId majburiy" });
 
-    if (!userId) {
-      return res.status(400).json({ error: "userId majburiy!" });
-    }
-
-    // Supabase’dan ma’lumot olish
+    // Supabase’dan ma’lumot
     const { data, error } = await supabase
       .from("results")
       .select("subject_id, correct_answers, total_questions, score_percentage, created_at")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("🔴 Supabase error:", error);
+      // Ko‘pincha RLS/permission muammosi bo‘ladi
+      const status = error.code === "PGRST301" ? 403 : 500;
+      return res.status(status).json({
+        error: error.message,
+        hint: "Service Role kalitini ishlating yoki RLS policy-ni tekshiring.",
+      });
+    }
 
-    // PDF tayyorlash
+    // PDF sarlavha va streaming
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `inline; filename="user-${userId}-results.pdf"`
     );
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ margin: 40 });
     doc.pipe(res);
 
-    doc.fontSize(20).text(`User ${userId} natijalari`, { align: "center" });
-    doc.moveDown();
+    doc.fontSize(18).text(`Foydalanuvchi natijalari`, { align: "center" });
+    doc.moveDown().fontSize(12).text(`User ID: ${userId}`).moveDown();
 
-    data.forEach((result, idx) => {
-      doc
-        .fontSize(12)
-        .text(
-          `${idx + 1}. Fan: ${result.subject_id}
-           To‘g‘ri javoblar: ${result.correct_answers}/${result.total_questions}
-           Foiz: ${result.score_percentage}%
-           Sana: ${new Date(result.created_at).toLocaleString()}`
-        );
-      doc.moveDown();
+    if (!data || data.length === 0) {
+      doc.text("Natijalar topilmadi.");
+      doc.end();
+      return;
+    }
+
+    // Oddiy “jadval” ko‘rinishida chiqaramiz
+    data.forEach((r, i) => {
+      doc.text(`${i + 1}) Subject: ${r.subject_id}`);
+      doc.text(`   To‘g‘ri: ${r.correct_answers} / ${r.total_questions}`);
+      doc.text(`   Foiz: ${r.score_percentage}%`);
+      doc.text(`   Sana: ${new Date(r.created_at).toLocaleString()}`);
+      doc.moveDown(0.8);
     });
 
     doc.end();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "PDF yaratishda xato yuz berdi" });
+    console.error("🔴 Route error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Ichki server xatosi (PDF)" });
+    } else {
+      try { res.end(); } catch (_) {}
+    }
   }
 });
 
