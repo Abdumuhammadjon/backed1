@@ -28,16 +28,16 @@ router.get("/userResults",  getUserResult )
 
 /
  
-router.get("/user-results/:userId", async (req, res) => {
+router.get("/user-results/:subjectId", async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId) return res.status(400).json({ error: "userId majburiy" });
+    const { subjectId } = req.params;
+    if (!subjectId) return res.status(400).json({ error: "userId majburiy" });
 
     // Supabase’dan ma’lumot
     const { data, error } = await supabase
       .from("results")
       .select("subject_id, correct_answers, total_questions, score_percentage, created_at")
-      .eq("user_id", userId)
+      .eq("subject_id", subjectId)
       .order("created_at", { ascending: false });
 
     if (error) {
