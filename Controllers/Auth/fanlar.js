@@ -404,129 +404,13 @@ const deleteQuestion = async (req, res) => {
 
 
 
-const getUserResultsPDF = async (req, res) => {
-  const { userId, subjectId } = req.query;
-
-  // Headerlar
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename=user_results_${userId || 'unknown'}.pdf`);
-
-  const doc = new PDFDocument({ margin: 50 });
-  let buffers = []; // Bufferlarni yig'ish uchun massiv
-
-  // Ma'lumotlarni Buffer sifatida yig'ish
-  doc.on('data', (chunk) => buffers.push(chunk));
-  doc.on('end', () => {
-    const pdfData = Buffer.concat(buffers);
-    console.log('PDF Buffer sifatida yaratildi, hajmi:', pdfData.length);
-    res.status(200).send(pdfData);
-  });
-
-  try {
-    // userId tekshiruvi
-    if (!userId) {
-      doc.fontSize(16).fillColor('red').text('❌ Foydalanuvchi ID majburiy!');
-      doc.end();
-      return;
-    }
-
-    // Supabase query
-    let query = supabase
-      .from('results')
-      .select(`
-        id,
-        user_id,
-        subject_id,
-        correct_answers,
-        total_questions,
-        score_percentage,
-        created_at,
-        users:users!user_id(username),
-        subjects:subjects!subject_id(name)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (subjectId) query = query.eq('subject_id', subjectId);
-
-    const { data: results, error } = await query;
-
-    if (error) {
-      doc.fontSize(16).fillColor('red').text('❌ Natijalarni olishda xatolik!');
-      doc.text(error.message);
-      doc.end();
-      return;
-    }
-
-    if (!results || results.length === 0) {
-      doc.fontSize(16).fillColor('orange').text('⚠️ Natijalar topilmadi!');
-      doc.end();
-      return;
-    }
-
-    // PDF tarkibi
-    doc.fontSize(20).fillColor('black').text('📊 Foydalanuvchi Natijalari', { align: 'center' });
-    doc.moveDown();
-
-    results.forEach((result, index) => {
-      doc.fontSize(14).fillColor('blue').text(`Natija #${index + 1}`, { underline: true });
-      doc.fontSize(12).fillColor('black');
-      doc.text(`👤 Foydalanuvchi: ${result.users?.username || 'Noma\'lum'}`);
-      doc.text(`📘 Fan: ${result.subjects?.name || 'Noma\'lum'}`);
-      doc.text(`✅ To‘g‘ri javoblar: ${result.correct_answers}`);
-      doc.text(`❓ Umumiy savollar: ${result.total_questions}`);
-      doc.text(`📈 Foiz: ${result.score_percentage}%`);
-      doc.text(`📅 Sana: ${new Date(result.created_at).toLocaleString('uz-UZ')}`);
-      doc.moveDown();
-    });
-
-    doc.end(); // PDF yozish tugadi
-  } catch (err) {
-    console.error('PDF generatsiyada xatolik:', err);
-    doc.fontSize(16).fillColor('red').text('❌ PDF generatsiyada xatolik!');
-    doc.text(err.message);
-    doc.end();
-  }
-};
-
-
-
-const deleteUserResult = async (req, res) => {
-  const resultId  = req.params.id;
-  // console.log(resultId);
-
-  const userId = req.user?.id; // Token orqali aniqlangan user ID
-
-  if (!resultId) {
-    return res.status(400).json({ error: 'Maʼlumot yetarli emas' });
-  }
-
-  // Avval natijani olib tekshiramiz: bu natija shu foydalanuvchigami?
-  const { data: result, error: fetchError } = await supabase
-    .from('results')
-    .select('user_id')
-    .eq('id', resultId)
-    .single();
-
-  if (fetchError || !result) {
-      return res.status(404).json({ error: 'Natija topilmadi' });
-    }
-  
-    // if (result.user_id !== userId) {
-  //   return res.status(403).json({ error: 'Siz bu natijani o‘chira olmaysiz' });
-  // }
-
-  // Endi o‘chiramiz
-  const { error: deleteError } = await supabase
-    .from('results')
-    .delete()
-    .eq('id', resultId);
-
-  if (deleteError) {
-    return res.status(500).json({ error: 'O‘chirishda xatolik' });
-  }
-
-  res.status(200).json({ message: 'Natija o‘chirildi' });
+const getUserResultsPDF = async (dataCallback, endCallback) => {
+  const doc = new PDFDocument();      // <-- PDFKit uchun new kerak
+  doc.on('data', dataCallback);
+  doc.on('end', endCallback);
+  doc.fontSize(25).text('pdf yaratildi');
+  doc.end();
+  return doc; // ixtiyoriy: xatolarni tutish uchun foydali
 };
 
 
