@@ -54,14 +54,14 @@ router.get("/user-results/:subjectId", async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="user-${userId}-results.pdf"`
+      `inline; filename="user-${subjectId}-results.pdf"`
     );
 
     const doc = new PDFDocument({ margin: 40 });
     doc.pipe(res);
 
     doc.fontSize(18).text(`Foydalanuvchi natijalari`, { align: "center" });
-    doc.moveDown().fontSize(12).text(`User ID: ${userId}`).moveDown();
+    doc.moveDown().fontSize(12).text(`User ID: ${subjectId}`).moveDown();
 
     if (!data || data.length === 0) {
       doc.text("Natijalar topilmadi.");
