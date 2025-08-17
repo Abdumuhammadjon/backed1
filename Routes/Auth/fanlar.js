@@ -26,15 +26,10 @@ router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
-/
 router.get("/user-results/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
-    if (!subjectId) {
-      return res.status(400).json({ error: "subjectId majburiy" });
-    }
 
-    // results + users join qilish
     const { data, error } = await supabase
       .from("results")
       .select(`
@@ -48,12 +43,8 @@ router.get("/user-results/:subjectId", async (req, res) => {
       .eq("subject_id", subjectId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Supabase error:", error);
-      return res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
 
-    // PDF sozlamalari
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -74,25 +65,35 @@ router.get("/user-results/:subjectId", async (req, res) => {
       return;
     }
 
+    // Jadval ustunlari kengliklari
+    const colWidths = { index: 30, username: 120, answers: 100, percent: 60, date: 150 };
+    let startX = 50;
+    let rowY = doc.y;
+
     // Jadval sarlavhalari
     doc.fontSize(12).font("Helvetica-Bold");
-    doc.text("№", 50, doc.y, { continued: true });
-    doc.text("Username", 80, doc.y, { width: 150, continued: true });
-    doc.text("To‘g‘ri/Umumiy", 250, doc.y, { width: 120, continued: true });
-    doc.text("Foiz", 370, doc.y, { width: 60, continued: true });
-    doc.text("Sana", 440, doc.y);
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // chiziq chizish
+    doc.text("№", startX, rowY, { width: colWidths.index });
+    doc.text("Username", startX + colWidths.index, rowY, { width: colWidths.username });
+    doc.text("To‘g‘ri/Umumiy", startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers });
+    doc.text("Foiz", startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent });
+    doc.text("Sana/Soat", startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date });
 
-    // Jadval ichidagi ma'lumotlar
-    doc.font("Helvetica");
+    rowY += 20;
+    doc.moveTo(startX, rowY).lineTo(550, rowY).stroke();
+
+    // Jadval ma'lumotlari
+    doc.font("Helvetica").fontSize(11);
     data.forEach((r, i) => {
-      doc.text(i + 1, 50, doc.y, { continued: true });
-      doc.text(r.users?.username || r.user_id, 80, doc.y, { width: 150, continued: true });
-      doc.text(`${r.correct_answers}/${r.total_questions}`, 250, doc.y, { width: 120, continued: true });
-      doc.text(`${r.score_percentage}%`, 370, doc.y, { width: 60, continued: true });
-      doc.text(new Date(r.created_at).toLocaleDateString(), 440, doc.y);
-      doc.moveDown(0.5);
+      const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
+
+      doc.text(i + 1, startX, rowY, { width: colWidths.index });
+      doc.text(r.users?.username || r.user_id, startX + colWidths.index, rowY, { width: colWidths.username });
+      doc.text(`${r.correct_answers}/${r.total_questions}`, startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers });
+      doc.text(`${r.score_percentage}%`, startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent });
+      doc.text(dateStr, startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date });
+
+      rowY += 20;
+      doc.moveTo(startX, rowY - 5).lineTo(550, rowY - 5).strokeColor("#cccccc").stroke();
     });
 
     doc.end();
@@ -100,11 +101,10 @@ router.get("/user-results/:subjectId", async (req, res) => {
     console.error("Route error:", err);
     if (!res.headersSent) {
       res.status(500).json({ error: "Ichki server xatosi (PDF)" });
-    } else {
-      try { res.end(); } catch (_) {}
     }
   }
 });
+
 
 router.delete("/question/:id",  deleteQuestion )
 router.delete("/userResult/:id",  deleteUserResult )
