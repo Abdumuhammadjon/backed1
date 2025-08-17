@@ -404,6 +404,7 @@ const deleteQuestion = async (req, res) => {
 
 
 
+// Sening berilgan funksiyang — "new" bilan to'g'riladi:
 const getUserResultsPDF = async (dataCallback, endCallback) => {
   const doc = new PDFDocument();      // <-- PDFKit uchun new kerak
   doc.on('data', dataCallback);
@@ -411,6 +412,46 @@ const getUserResultsPDF = async (dataCallback, endCallback) => {
   doc.fontSize(25).text('pdf yaratildi');
   doc.end();
   return doc; // ixtiyoriy: xatolarni tutish uchun foydali
+};
+
+
+
+const deleteUserResult = async (req, res) => {
+  const resultId  = req.params.id;
+  // console.log(resultId);
+
+  const userId = req.user?.id; // Token orqali aniqlangan user ID
+
+  if (!resultId) {
+    return res.status(400).json({ error: 'Maʼlumot yetarli emas' });
+  }
+
+  // Avval natijani olib tekshiramiz: bu natija shu foydalanuvchigami?
+  const { data: result, error: fetchError } = await supabase
+    .from('results')
+    .select('user_id')
+    .eq('id', resultId)
+    .single();
+
+  if (fetchError || !result) {
+      return res.status(404).json({ error: 'Natija topilmadi' });
+    }
+  
+    // if (result.user_id !== userId) {
+  //   return res.status(403).json({ error: 'Siz bu natijani o‘chira olmaysiz' });
+  // }
+
+  // Endi o‘chiramiz
+  const { error: deleteError } = await supabase
+    .from('results')
+    .delete()
+    .eq('id', resultId);
+
+  if (deleteError) {
+    return res.status(500).json({ error: 'O‘chirishda xatolik' });
+  }
+
+  res.status(200).json({ message: 'Natija o‘chirildi' });
 };
 
 
