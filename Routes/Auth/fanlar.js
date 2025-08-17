@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../../redisClient");
+const { supabase } = require("../../config/supabaseClient");
 
 const {
   createSubject,
@@ -25,8 +25,7 @@ router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
-// router.get("/userResults/pdf/:id", getUserResultsPDF  )
-// router.get("/userResults/pdf", getUserResultsPDF  )
+/
  
 router.get("/user-results/:userId", async (req, res) => {
   try {
