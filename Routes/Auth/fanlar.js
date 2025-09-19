@@ -65,36 +65,58 @@ router.get("/user-results/:subjectId", async (req, res) => {
       return;
     }
 
-    // Jadval ustunlari kengliklari
-    const colWidths = { index: 30, username: 120, answers: 100, percent: 60, date: 150 };
-    let startX = 50;
-    let rowY = doc.y;
+   
+    
+   // Jadval ustunlari kengliklari (biroz kengaytirdim)
+const colWidths = { index: 30, username: 150, answers: 100, percent: 60, date: 180 };
+let startX = 50;
+let rowY = doc.y;
 
-    // Jadval sarlavhalari
-    doc.fontSize(12).font("Helvetica-Bold");
-    doc.text("№", startX, rowY, { width: colWidths.index });
-    doc.text("Username", startX + colWidths.index, rowY, { width: colWidths.username });
-    doc.text("To‘g‘ri/Umumiy", startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers });
-    doc.text("Foiz", startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent });
-    doc.text("Sana/Soat", startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date });
+// Jadval sarlavhalari
+doc.fontSize(12).font("Helvetica-Bold");
+doc.text("№", startX, rowY, { width: colWidths.index, align: "center" });
+doc.text("Username", startX + colWidths.index, rowY, { width: colWidths.username, ellipsis: true });
+doc.text("To‘g‘ri/Umumiy", startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers, align: "center" });
+doc.text("Foiz", startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent, align: "center" });
+doc.text("Sana/Soat", startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date, ellipsis: true });
 
-    rowY += 20;
-    doc.moveTo(startX, rowY).lineTo(550, rowY).stroke();
+rowY += 20;
+doc.moveTo(startX, rowY).lineTo(550, rowY).stroke();
 
-    // Jadval ma'lumotlari
-    doc.font("Helvetica").fontSize(11);
-    data.forEach((r, i) => {
-      const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
+// Jadval ma'lumotlari
+doc.font("Helvetica").fontSize(11);
+data.forEach((r, i) => {
+  const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
 
-      doc.text(i + 1, startX, rowY, { width: colWidths.index });
-      doc.text(r.users?.username || r.user_id, startX + colWidths.index, rowY, { width: colWidths.username });
-      doc.text(`${r.correct_answers}/${r.total_questions}`, startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers });
-      doc.text(`${r.score_percentage}%`, startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent });
-      doc.text(dateStr, startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date });
+  doc.text(i + 1, startX, rowY, { width: colWidths.index, align: "center" });
+  doc.text(r.users?.username || r.user_id, startX + colWidths.index, rowY, {
+    width: colWidths.username,
+    ellipsis: true,
+  });
+  doc.text(`${r.correct_answers}/${r.total_questions}`, startX + colWidths.index + colWidths.username, rowY, {
+    width: colWidths.answers,
+    align: "center",
+  });
+  doc.text(`${r.score_percentage}%`, startX + colWidths.index + colWidths.username + colWidths.answers, rowY, {
+    width: colWidths.percent,
+    align: "center",
+  });
+  doc.text(dateStr, startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, {
+    width: colWidths.date,
+    ellipsis: true,
+  });
 
-      rowY += 20;
-      doc.moveTo(startX, rowY - 5).lineTo(550, rowY - 5).strokeColor("#cccccc").stroke();
-    });
+  rowY += 20;
+
+  // Agar sahifa tugasa, yangi sahifa ochiladi
+  if (rowY > 750) {
+    doc.addPage();
+    rowY = 50;
+  }
+
+  doc.moveTo(startX, rowY - 5).lineTo(550, rowY - 5).strokeColor("#cccccc").stroke();
+});
+
 
     doc.end();
   } catch (err) {
