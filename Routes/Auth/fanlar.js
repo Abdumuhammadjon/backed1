@@ -51,7 +51,8 @@ router.get("/user-results/:subjectId", async (req, res) => {
       `inline; filename="subject-${subjectId}-results.pdf"`
     );
 
-    const doc = new PDFDocument({ margin: 40, size: "A4" });
+   const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
+
     doc.pipe(res);
 
     // Header
