@@ -183,30 +183,29 @@ const getQuestionsBySubject = async (req, res) => {
 };   // 3. Questions jadvalidan savollarni olish
 
 
-const checkUserAnswers = async (req, res) => {
+ const checkUserAnswers = async (req, res) => {
   try {
-      const { answers, userId, subjectId } = req.body;
-    
-    
+    const { answers, userId, subjectId } = req.body;
 
     if (!answers || answers.length === 0) {
-        return res.status(400).json({ error: "Javoblar talab qilinadi!" });
-      }
+      return res.status(400).json({ error: "Javoblar talab qilinadi!" });
+    }
 
-      if (!userId || !subjectId) {
+    if (!userId || !subjectId) {
       return res.status(400).json({ error: "Foydalanuvchi ID va subjectId talab qilinadi!" });
     }
 
     let correctCount = 0;
     const totalQuestions = answers.length;
+    const answersToInsert = [];
 
     for (const answer of answers) {
       const { questionId, variantId } = answer;
 
-      // Variantning to‘g‘ri yoki noto‘g‘ri ekanligini tekshirish
+      // 1️⃣ Variantni tekshirish
       const { data: option, error: optionError } = await supabase
         .from("options")
-        .select("is_correct")
+        .select("is_correct, option_text, question_id")
         .eq("id", variantId)
         .single();
 
@@ -215,17 +214,46 @@ const checkUserAnswers = async (req, res) => {
         return res.status(500).json({ error: "Variantni tekshirishda xatolik!" });
       }
 
-      if (option && option.is_correct) {
-          correctCount++;
-        }
+      // 2️⃣ Savol matnini olish
+      const { data: questionData, error: questionError } = await supabase
+        .from("questions")
+        .select("question_text")
+        .eq("id", questionId)
+        .single();
+
+      if (questionError) {
+        console.error("Savolni olishda xatolik:", questionError);
+        return res.status(500).json({ error: "Savolni olishda xatolik!" });
       }
-  
-      const scorePercentage = ((correctCount / totalQuestions) * 100).toFixed(2);
-  
-      // **Natijalarni saqlash**
-      const { error: saveError } = await supabase
-        .from("results")
-        .insert([
+
+      // 3️⃣ To‘g‘ri javobni olish
+      const { data: correctOpt } = await supabase
+        .from("options")
+        .select("option_text")
+        .eq("question_id", questionId)
+        .eq("is_correct", true)
+        .single();
+
+      const isCorrect = option?.is_correct || false;
+      if (isCorrect) correctCount++;
+
+      // 4️⃣ answers massiviga qo‘shish
+      answersToInsert.push({
+        question_id: questionId,
+        question_text: questionData?.question_text || null, // ✅ savol matni
+        user_answer: option?.option_text || null,           // ✅ foydalanuvchi javobi
+        correct_answer: correctOpt?.option_text || null,    // ✅ to‘g‘ri javob
+        is_correct: isCorrect,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    const scorePercentage = ((correctCount / totalQuestions) * 100).toFixed(2);
+
+    // 5️⃣ results jadvaliga yozish
+    const { data: result, error: saveError } = await supabase
+      .from("results")
+      .insert([
         {
           user_id: userId,
           subject_id: subjectId,
@@ -234,25 +262,43 @@ const checkUserAnswers = async (req, res) => {
           score_percentage: scorePercentage,
           created_at: new Date().toISOString(),
         },
-      ]);
+      ])
+      .select("id")
+      .single();
 
     if (saveError) {
       console.error("Natijani saqlashda xatolik:", saveError);
       return res.status(500).json({ error: "Natijani saqlashda xatolik!" });
     }
 
+    // 6️⃣ answers jadvaliga yozish
+    const answersWithResult = answersToInsert.map((a) => ({
+      ...a,
+      result_id: result.id,
+    }));
+
+    const { error: answersError } = await supabase
+      .from("answers")
+      .insert(answersWithResult);
+
+    if (answersError) {
+      console.error("Answerlarni saqlashda xatolik:", answersError);
+      return res.status(500).json({ error: "Answerlarni saqlashda xatolik!" });
+    }
+
     return res.status(200).json({
-        totalQuestions,
-        correctAnswers: correctCount,
-        scorePercentage: `${scorePercentage}%`,
-        message: "Natija muvaffaqiyatli saqlandi!",
-      });
-  
-    } catch (err) {
-    // console.error("Server xatosi:", err);
+      totalQuestions,
+      correctAnswers: correctCount,
+      scorePercentage: `${scorePercentage}%`,
+      message: "Natija va barcha javoblar muvaffaqiyatli saqlandi!",
+    });
+
+  } catch (err) {
+    console.error("Server xatosi:", err);
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
+
 
 
 const getUserResults = async (req, res) => {
