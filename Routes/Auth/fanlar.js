@@ -25,7 +25,6 @@ router.delete("/subjects/:id", deleteSubject);
 router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
-
 router.get("/user-results/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
@@ -38,6 +37,7 @@ router.get("/user-results/:subjectId", async (req, res) => {
         total_questions,
         score_percentage,
         created_at,
+        answers,
         users(username)
       `)
       .eq("subject_id", subjectId)
@@ -51,8 +51,7 @@ router.get("/user-results/:subjectId", async (req, res) => {
       `inline; filename="subject-${subjectId}-results.pdf"`
     );
 
-   const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
-
+    const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
     doc.pipe(res);
 
     // Header
@@ -66,58 +65,62 @@ router.get("/user-results/:subjectId", async (req, res) => {
       return;
     }
 
-   
-    
-   // Jadval ustunlari kengliklari (biroz kengaytirdim)
-const colWidths = { index: 30, username: 150, answers: 100, percent: 60, date: 180 };
-let startX = 50;
-let rowY = doc.y;
+    // Jadval ustunlari
+    const colWidths = { index: 30, username: 150, answers: 100, percent: 60, date: 180 };
+    let startX = 50;
+    let rowY = doc.y;
 
-// Jadval sarlavhalari
-doc.fontSize(12).font("Helvetica-Bold");
-doc.text("№", startX, rowY, { width: colWidths.index, align: "center" });
-doc.text("Username", startX + colWidths.index, rowY, { width: colWidths.username, ellipsis: true });
-doc.text("To‘g‘ri/Umumiy", startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers, align: "center" });
-doc.text("Foiz", startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent, align: "center" });
-doc.text("Sana/Soat", startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date, ellipsis: true });
+    // Jadval sarlavhalari
+    doc.fontSize(12).font("Helvetica-Bold");
+    doc.text("№", startX, rowY, { width: colWidths.index, align: "center" });
+    doc.text("Username", startX + colWidths.index, rowY, { width: colWidths.username });
+    doc.text("To‘g‘ri/Umumiy", startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers, align: "center" });
+    doc.text("Foiz", startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent, align: "center" });
+    doc.text("Sana/Soat", startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date });
 
-rowY += 20;
-doc.moveTo(startX, rowY).lineTo(550, rowY).stroke();
+    rowY += 20;
+    doc.moveTo(startX, rowY).lineTo(750, rowY).stroke();
 
-// Jadval ma'lumotlari
-doc.font("Helvetica").fontSize(11);
-data.forEach((r, i) => {
-  const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
+    // Jadval ma'lumotlari
+    doc.font("Helvetica").fontSize(11);
 
-  doc.text(i + 1, startX, rowY, { width: colWidths.index, align: "center" });
-  doc.text(r.users?.username || r.user_id, startX + colWidths.index, rowY, {
-    width: colWidths.username,
-    ellipsis: true,
-  });
-  doc.text(`${r.correct_answers}/${r.total_questions}`, startX + colWidths.index + colWidths.username, rowY, {
-    width: colWidths.answers,
-    align: "center",
-  });
-  doc.text(`${r.score_percentage}%`, startX + colWidths.index + colWidths.username + colWidths.answers, rowY, {
-    width: colWidths.percent,
-    align: "center",
-  });
-  doc.text(dateStr, startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, {
-    width: colWidths.date,
-    ellipsis: true,
-  });
+    data.forEach((r, i) => {
+      const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
 
-  rowY += 20;
+      // Asosiy jadval qatori
+      doc.text(i + 1, startX, rowY, { width: colWidths.index, align: "center" });
+      doc.text(r.users?.username || r.user_id, startX + colWidths.index, rowY, { width: colWidths.username });
+      doc.text(`${r.correct_answers}/${r.total_questions}`, startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers, align: "center" });
+      doc.text(`${r.score_percentage}%`, startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent, align: "center" });
+      doc.text(dateStr, startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date });
 
-  // Agar sahifa tugasa, yangi sahifa ochiladi
-  if (rowY > 750) {
-    doc.addPage();
-    rowY = 50;
-  }
+      rowY += 20;
 
-  doc.moveTo(startX, rowY - 5).lineTo(550, rowY - 5).strokeColor("#cccccc").stroke();
-});
+      // Foydalanuvchi bergan javoblarni chiqarish
+      if (r.answers && Array.isArray(r.answers)) {
+        r.answers.forEach((ans, j) => {
+          doc.font("Helvetica-Oblique").fontSize(10).fillColor("#333");
+          doc.text(
+            `   ${j + 1}) Savol: ${ans.question}\n       Sizning javobingiz: ${ans.selected}\n       To‘g‘ri javob: ${ans.correct}`,
+            startX + 20,
+            rowY,
+            { width: 600 }
+          );
+          rowY += 40;
 
+          // Agar sahifa tugasa
+          if (rowY > 550) {
+            doc.addPage();
+            rowY = 50;
+          }
+        });
+
+        doc.fillColor("black"); // rangni qayta tiklash
+        rowY += 10;
+      }
+
+      doc.moveTo(startX, rowY - 5).lineTo(750, rowY - 5).strokeColor("#cccccc").stroke();
+    });
 
     doc.end();
   } catch (err) {
@@ -127,6 +130,7 @@ data.forEach((r, i) => {
     }
   }
 });
+
 
 router.get("/subject-questions/:subjectId", async (req, res) => {
   try {
