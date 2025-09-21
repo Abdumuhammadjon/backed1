@@ -387,7 +387,7 @@ const getUserResult = async (req, res) => {
         score_percentage,
         created_at,
         answers:answers!fk_result (
-          id,
+          result_id,
           question_id,
           user_answer,
           correct_answer,
