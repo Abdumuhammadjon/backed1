@@ -272,10 +272,11 @@ const getQuestionsBySubject = async (req, res) => {
     }
 
     // 6️⃣ answers jadvaliga yozish
-    const answersWithResult = answersToInsert.map((a) => ({
-      ...a,
-      result_id: result.id,
-    }));
+  const answersWithResult = answersToInsert.map(answer => ({
+  ...answer,
+  result_id: result.id, // bu yerda result.id integer
+}));
+
 console.log(answersToInsert);
 
     const { error: answersError } = await supabase
