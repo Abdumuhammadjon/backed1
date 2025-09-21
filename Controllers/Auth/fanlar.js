@@ -367,8 +367,7 @@ const getUserResults = async (req, res) => {
   };
   
   
-  
-  const getUserResult = async (req, res) => {
+const getUserResult = async (req, res) => {
   const { userId, subjectId } = req.query;
 
   if (!userId || !subjectId) {
@@ -379,7 +378,7 @@ const getUserResults = async (req, res) => {
     // 1. Oxirgi natijani olish (results jadvalidan)
     const { data: result, error: resultError } = await supabase
       .from('results')
-      .select('correct_answers, total_questions, score_percentage, created_at')
+      .select('id, correct_answers, total_questions, score_percentage, created_at')
       .eq('user_id', userId)
       .eq('subject_id', subjectId)
       .order('created_at', { ascending: false })
@@ -390,7 +389,17 @@ const getUserResults = async (req, res) => {
       return res.status(404).json({ error: 'Natija topilmadi' });
     }
 
-    // 2. Fan nomini olish
+    // 2. Foydalanuvchi javoblarini olish (answers jadvalidan)
+    const { data: answers, error: answersError } = await supabase
+      .from('answers')
+      .select('id, question_id, user_answer, is_correct')
+      .eq('result_id', result.id);
+
+    if (answersError) {
+      return res.status(500).json({ error: 'Javoblarni olishda xato' });
+    }
+
+    // 3. Fan nomini olish (subjects jadvalidan)
     const { data: subject, error: subjectError } = await supabase
       .from('subjects')
       .select('name')
@@ -401,20 +410,18 @@ const getUserResults = async (req, res) => {
       return res.status(500).json({ error: 'Fan nomini olishda xato' });
     }
 
-    // Javob qaytarish
+    // Yig‘ilgan natijani qaytarish
     res.json({
-        subjectName: subject?.name || 'Nomaʼlum fan',
-        resultSummary: result
-      });
-  
-  
-  
-  
-    } catch (err) {
-    // console.error(err);
-    res.status(500).json({ error: 'Server xatosi' });
+      subjectName: subject?.name || 'Nomaʼlum fan',
+      resultSummary: result,
+      answers: answers || []
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: 'Server xatosi', details: err.message });
   }
 };
+
 
 const deleteQuestion = async (req, res) => {
   try {
