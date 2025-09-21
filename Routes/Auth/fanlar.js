@@ -47,85 +47,33 @@ router.get("/user-results/:subjectId", async (req, res) => {
 
     if (resultsError) throw resultsError;
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="subject-${subjectId}-results.pdf"`
-    );
-
-    const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
-    doc.pipe(res);
-
-    // Header
-    doc.fontSize(18).text("📊 Fan bo‘yicha natijalar", { align: "center" });
-    doc.moveDown().fontSize(12).text(`Subject ID: ${subjectId}`, { align: "center" });
-    doc.moveDown(2);
-
     if (!results || results.length === 0) {
-      doc.text("❌ Bu subject uchun natijalar topilmadi.");
-      doc.end();
-      return;
+      return res.json({ results: [] });
     }
 
+    // 2️⃣ Har bir natija uchun answerslarni qo‘shib chiqamiz
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
 
-      // 2️⃣ Foydalanuvchi umumiy natijasi
-      doc.fontSize(12).font("Helvetica-Bold").text(
-        `${i + 1}. ${r.users?.username || r.user_id} | To‘g‘ri: ${r.correct_answers}/${r.total_questions} | Foiz: ${r.score_percentage}% | Sana: ${dateStr}`
-      );
-      doc.moveDown(0.5);
-
-      // 3️⃣ Har bir savol va javoblarni olish
       const { data: answers, error: answersError } = await supabase
         .from("answers")
-        .select("*")
+        .select("id, question_id, question_text, user_answer, correct_answer, is_correct, created_at")
         .eq("result_id", r.id)
         .order("created_at", { ascending: true });
 
       if (answersError) throw answersError;
 
-      // Jadval sarlavhalari
-      doc.font("Helvetica-Bold").fontSize(11);
-      doc.text("№", { continued: true, width: 30 });
-      doc.text("Savol matni", { continued: true, width: 300 });
-      doc.text("Foydalanuvchi javobi", { continued: true, width: 150 });
-      doc.text("To‘g‘ri javob", { width: 150 });
-      doc.moveDown(0.5);
-
-      doc.font("Helvetica").fontSize(11);
-      answers.forEach((ans, idx) => {
-        doc.text(idx + 1, { continued: true, width: 30 });
-        doc.text(ans.question_text, { continued: true, width: 300, ellipsis: true });
-        doc.text(ans.user_answer, { continued: true, width: 150, ellipsis: true });
-        doc.text(ans.correct_answer, { width: 150, ellipsis: true });
-        doc.moveDown(0.3);
-
-        // Sahifa chekkasi
-        if (doc.y > 750) {
-          doc.addPage();
-        }
-      });
-
-      doc.moveDown(1);
-      doc.moveTo(50, doc.y).lineTo(750, doc.y).strokeColor("#cccccc").stroke();
-      doc.moveDown(1);
-
-      // Agar sahifa tugasa, yangi sahifa ochiladi
-      if (doc.y > 700) {
-        doc.addPage();
-      }
+      r.answers = answers || [];
     }
 
-    doc.end();
+    // 3️⃣ Endi faqat JSON qaytaramiz (frontend PDF qiladi)
+    res.json({ results });
   } catch (err) {
     console.error("Route error:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Ichki server xatosi (PDF)" });
-    }
+    res.status(500).json({ error: "Ichki server xatosi (JSON)" });
   }
 });
+
 
 
 router.get("/subject-questions/:subjectId", async (req, res) => {
