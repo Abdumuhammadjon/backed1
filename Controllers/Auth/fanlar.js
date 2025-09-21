@@ -393,7 +393,7 @@ const getUserResult = async (req, res) => {
     const { data: answers, error: answersError } = await supabase
       .from("answers")
       .select("id, question_text, user_answer, correct_answer, is_correct")
-      .eq("result_id", result.id)
+      .eq("result_id", id)
       .order("created_at", { ascending: true });
 
     if (answersError) {
