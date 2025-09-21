@@ -276,6 +276,7 @@ const getQuestionsBySubject = async (req, res) => {
       ...a,
       result_id: result.id,
     }));
+console.log(answersToInsert);
 
     const { error: answersError } = await supabase
       .from("answers")
