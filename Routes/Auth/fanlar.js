@@ -30,9 +30,11 @@ router.get("/user-results/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
 
-    const { data, error } = await supabase
+    // 1️⃣ Natijalarni olish
+    const { data: results, error: resultsError } = await supabase
       .from("results")
       .select(`
+        id,
         user_id,
         correct_answers,
         total_questions,
@@ -43,7 +45,7 @@ router.get("/user-results/:subjectId", async (req, res) => {
       .eq("subject_id", subjectId)
       .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (resultsError) throw resultsError;
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -51,8 +53,7 @@ router.get("/user-results/:subjectId", async (req, res) => {
       `inline; filename="subject-${subjectId}-results.pdf"`
     );
 
-   const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
-
+    const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
     doc.pipe(res);
 
     // Header
@@ -60,64 +61,62 @@ router.get("/user-results/:subjectId", async (req, res) => {
     doc.moveDown().fontSize(12).text(`Subject ID: ${subjectId}`, { align: "center" });
     doc.moveDown(2);
 
-    if (!data || data.length === 0) {
+    if (!results || results.length === 0) {
       doc.text("❌ Bu subject uchun natijalar topilmadi.");
       doc.end();
       return;
     }
 
-   
-    
-   // Jadval ustunlari kengliklari (biroz kengaytirdim)
-const colWidths = { index: 30, username: 150, answers: 100, percent: 60, date: 180 };
-let startX = 50;
-let rowY = doc.y;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
 
-// Jadval sarlavhalari
-doc.fontSize(12).font("Helvetica-Bold");
-doc.text("№", startX, rowY, { width: colWidths.index, align: "center" });
-doc.text("Username", startX + colWidths.index, rowY, { width: colWidths.username, ellipsis: true });
-doc.text("To‘g‘ri/Umumiy", startX + colWidths.index + colWidths.username, rowY, { width: colWidths.answers, align: "center" });
-doc.text("Foiz", startX + colWidths.index + colWidths.username + colWidths.answers, rowY, { width: colWidths.percent, align: "center" });
-doc.text("Sana/Soat", startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, { width: colWidths.date, ellipsis: true });
+      // 2️⃣ Foydalanuvchi umumiy natijasi
+      doc.fontSize(12).font("Helvetica-Bold").text(
+        `${i + 1}. ${r.users?.username || r.user_id} | To‘g‘ri: ${r.correct_answers}/${r.total_questions} | Foiz: ${r.score_percentage}% | Sana: ${dateStr}`
+      );
+      doc.moveDown(0.5);
 
-rowY += 20;
-doc.moveTo(startX, rowY).lineTo(550, rowY).stroke();
+      // 3️⃣ Har bir savol va javoblarni olish
+      const { data: answers, error: answersError } = await supabase
+        .from("answers")
+        .select("*")
+        .eq("result_id", r.id)
+        .order("created_at", { ascending: true });
 
-// Jadval ma'lumotlari
-doc.font("Helvetica").fontSize(11);
-data.forEach((r, i) => {
-  const dateStr = new Date(r.created_at).toLocaleString("uz-UZ");
+      if (answersError) throw answersError;
 
-  doc.text(i + 1, startX, rowY, { width: colWidths.index, align: "center" });
-  doc.text(r.users?.username || r.user_id, startX + colWidths.index, rowY, {
-    width: colWidths.username,
-    ellipsis: true,
-  });
-  doc.text(`${r.correct_answers}/${r.total_questions}`, startX + colWidths.index + colWidths.username, rowY, {
-    width: colWidths.answers,
-    align: "center",
-  });
-  doc.text(`${r.score_percentage}%`, startX + colWidths.index + colWidths.username + colWidths.answers, rowY, {
-    width: colWidths.percent,
-    align: "center",
-  });
-  doc.text(dateStr, startX + colWidths.index + colWidths.username + colWidths.answers + colWidths.percent, rowY, {
-    width: colWidths.date,
-    ellipsis: true,
-  });
+      // Jadval sarlavhalari
+      doc.font("Helvetica-Bold").fontSize(11);
+      doc.text("№", { continued: true, width: 30 });
+      doc.text("Savol matni", { continued: true, width: 300 });
+      doc.text("Foydalanuvchi javobi", { continued: true, width: 150 });
+      doc.text("To‘g‘ri javob", { width: 150 });
+      doc.moveDown(0.5);
 
-  rowY += 20;
+      doc.font("Helvetica").fontSize(11);
+      answers.forEach((ans, idx) => {
+        doc.text(idx + 1, { continued: true, width: 30 });
+        doc.text(ans.question_text, { continued: true, width: 300, ellipsis: true });
+        doc.text(ans.user_answer, { continued: true, width: 150, ellipsis: true });
+        doc.text(ans.correct_answer, { width: 150, ellipsis: true });
+        doc.moveDown(0.3);
 
-  // Agar sahifa tugasa, yangi sahifa ochiladi
-  if (rowY > 750) {
-    doc.addPage();
-    rowY = 50;
-  }
+        // Sahifa chekkasi
+        if (doc.y > 750) {
+          doc.addPage();
+        }
+      });
 
-  doc.moveTo(startX, rowY - 5).lineTo(550, rowY - 5).strokeColor("#cccccc").stroke();
-});
+      doc.moveDown(1);
+      doc.moveTo(50, doc.y).lineTo(750, doc.y).strokeColor("#cccccc").stroke();
+      doc.moveDown(1);
 
+      // Agar sahifa tugasa, yangi sahifa ochiladi
+      if (doc.y > 700) {
+        doc.addPage();
+      }
+    }
 
     doc.end();
   } catch (err) {
@@ -127,6 +126,7 @@ data.forEach((r, i) => {
     }
   }
 });
+
 
 router.get("/subject-questions/:subjectId", async (req, res) => {
   try {
