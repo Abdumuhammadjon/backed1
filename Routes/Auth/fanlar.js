@@ -26,12 +26,14 @@ router.get("/subject/:id", getQuestionsBySubject)
 router.get("/userResults/:id",  getUserResults )
 router.get("/userResults",  getUserResult )
 
+// 📌 routes/userResults.js
+
 router.get("/user-results/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
 
-    // 1️⃣ Natijalar
-    const { data: results, error: resultsError } = await supabase
+    // 1️⃣ Results bilan birga answersni olish
+    const { data: results, error } = await supabase
       .from("results")
       .select(`
         id,
@@ -40,33 +42,29 @@ router.get("/user-results/:subjectId", async (req, res) => {
         total_questions,
         score_percentage,
         created_at,
-        users(username)
+        users ( username ),
+        answers (
+          id,
+          question_id,
+          user_answer,
+          correct_answer,
+          is_correct,
+          created_at
+        )
       `)
       .eq("subject_id", subjectId)
       .order("created_at", { ascending: false });
 
-    if (resultsError) throw resultsError;
+    if (error) throw error;
+
+    // 2️⃣ Natijalar bo‘sh bo‘lsa
     if (!results || results.length === 0) {
       return res.json({ results: [] });
     }
 
-    // 2️⃣ Har bir natijaga answers qo‘shamiz
-    const resultsWithAnswers = await Promise.all(
-      results.map(async (r) => {
-        const { data: answers, error: answersError } = await supabase
-          .from("answers")
-          .select("id, question_id, question_text, user_answer, correct_answer, is_correct, created_at")
-          .eq("result_id", r.id)
-          .order("created_at", { ascending: true });
+    // 3️⃣ JSON qaytarish (frontend PDF yasashi uchun)
+    res.json({ results });
 
-        if (answersError) throw answersError;
-
-        return { ...r, answers: answers || [] };
-      })
-    );
-
-    // 3️⃣ Natija
-    res.json({ results: resultsWithAnswers });
   } catch (err) {
     console.error("Route error:", err);
     res.status(500).json({ error: "Ichki server xatosi (JSON)" });
