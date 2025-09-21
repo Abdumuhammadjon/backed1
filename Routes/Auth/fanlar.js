@@ -30,7 +30,7 @@ router.get("/user-results/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
 
-    // 1️⃣ Barcha results natijalarini olish
+    // 1️⃣ Natijalar
     const { data: results, error: resultsError } = await supabase
       .from("results")
       .select(`
@@ -46,35 +46,27 @@ router.get("/user-results/:subjectId", async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (resultsError) throw resultsError;
-
     if (!results || results.length === 0) {
       return res.json({ results: [] });
     }
 
-    // 2️⃣ Har bir result uchun answers qo‘shamiz
-    const enrichedResults = await Promise.all(
+    // 2️⃣ Har bir natijaga answers qo‘shamiz
+    const resultsWithAnswers = await Promise.all(
       results.map(async (r) => {
         const { data: answers, error: answersError } = await supabase
           .from("answers")
-          .select(
-            "id, question_id, question_text, user_answer, correct_answer, is_correct, created_at"
-          )
+          .select("id, question_id, question_text, user_answer, correct_answer, is_correct, created_at")
           .eq("result_id", r.id)
           .order("created_at", { ascending: true });
 
-        if (answersError) {
-          console.error("Answers error:", answersError);
-          r.answers = [];
-        } else {
-          r.answers = answers || [];
-        }
+        if (answersError) throw answersError;
 
-        return r;
+        return { ...r, answers: answers || [] };
       })
     );
 
-    // 3️⃣ Faqat JSON qaytaramiz (frontend PDF yaratadi)
-    res.json({ results: enrichedResults });
+    // 3️⃣ Natija
+    res.json({ results: resultsWithAnswers });
   } catch (err) {
     console.error("Route error:", err);
     res.status(500).json({ error: "Ichki server xatosi (JSON)" });
