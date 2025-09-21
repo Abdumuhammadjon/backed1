@@ -375,10 +375,27 @@ const getUserResult = async (req, res) => {
   }
 
   try {
-    // 1. Oxirgi natija (results jadvalidan)
+    // 1. Oxirgi resultni olish (results jadvalidan + answers bilan birga)
     const { data: result, error: resultError } = await supabase
       .from("results")
-      .select("id, correct_answers, total_questions, score_percentage, created_at")
+      .select(`
+        id,
+        user_id,
+        subject_id,
+        correct_answers,
+        total_questions,
+        score_percentage,
+        created_at,
+        answers:answers!fk_result (
+          id,
+          question_id,
+          user_answer,
+          correct_answer,
+          is_correct,
+          created_at,
+          question_text
+        )
+      `)
       .eq("user_id", userId)
       .eq("subject_id", subjectId)
       .order("created_at", { ascending: false })
@@ -389,18 +406,7 @@ const getUserResult = async (req, res) => {
       return res.status(404).json({ error: "Natija topilmadi" });
     }
 
-    // 2. Shu result.id orqali answers olish
-    const { data: answers, error: answersError } = await supabase
-      .from("answers")
-      .select("id, question_text, user_answer, correct_answer, is_correct")
-      .eq("result_id", id)
-      .order("created_at", { ascending: true });
-
-    if (answersError) {
-      return res.status(500).json({ error: "Answers olishda xato" });
-    }
-
-    // 3. Fan nomini olish
+    // 2. Fan nomini olish
     const { data: subject, error: subjectError } = await supabase
       .from("subjects")
       .select("name")
@@ -411,14 +417,20 @@ const getUserResult = async (req, res) => {
       return res.status(500).json({ error: "Fan nomini olishda xato" });
     }
 
-    // ✅ Hammasini qaytarish
+    // Javob qaytarish
     res.json({
       subjectName: subject?.name || "Nomaʼlum fan",
-      resultSummary: result,
-      answers: answers || [],
+      resultSummary: {
+        id: result.id,
+        correct_answers: result.correct_answers,
+        total_questions: result.total_questions,
+        score_percentage: result.score_percentage,
+        created_at: result.created_at,
+      },
+      answers: result.answers || [], // foydalanuvchi belgilagan javoblar
     });
   } catch (err) {
-    console.error("Server error:", err);
+    console.error(err);
     res.status(500).json({ error: "Server xatosi" });
   }
 };
