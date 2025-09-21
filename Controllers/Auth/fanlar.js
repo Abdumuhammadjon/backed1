@@ -371,56 +371,58 @@ const getUserResult = async (req, res) => {
   const { userId, subjectId } = req.query;
 
   if (!userId || !subjectId) {
-    return res.status(400).json({ error: 'userId va subjectId kerak' });
+    return res.status(400).json({ error: "userId va subjectId kerak" });
   }
 
   try {
-    // 1. Oxirgi natijani olish (results jadvalidan)
+    // 1. Oxirgi natija (results jadvalidan)
     const { data: result, error: resultError } = await supabase
-      .from('results')
-      .select('id, correct_answers, total_questions, score_percentage, created_at')
-      .eq('user_id', userId)
-      .eq('subject_id', subjectId)
-      .order('created_at', { ascending: false })
+      .from("results")
+      .select("id, correct_answers, total_questions, score_percentage, created_at")
+      .eq("user_id", userId)
+      .eq("subject_id", subjectId)
+      .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
     if (resultError || !result) {
-      return res.status(404).json({ error: 'Natija topilmadi' });
+      return res.status(404).json({ error: "Natija topilmadi" });
     }
 
-    // 2. Foydalanuvchi javoblarini olish (answers jadvalidan)
+    // 2. Shu result.id orqali answers olish
     const { data: answers, error: answersError } = await supabase
-      .from('answers')
-      .select('id, question_id, user_answer, is_correct')
-      .eq('result_id', result.id);
+      .from("answers")
+      .select("id, question_text, user_answer, correct_answer, is_correct")
+      .eq("result_id", result.id)
+      .order("created_at", { ascending: true });
 
     if (answersError) {
-      return res.status(500).json({ error: 'Javoblarni olishda xato' });
+      return res.status(500).json({ error: "Answers olishda xato" });
     }
 
-    // 3. Fan nomini olish (subjects jadvalidan)
+    // 3. Fan nomini olish
     const { data: subject, error: subjectError } = await supabase
-      .from('subjects')
-      .select('name')
-      .eq('id', subjectId)
+      .from("subjects")
+      .select("name")
+      .eq("id", subjectId)
       .single();
 
     if (subjectError) {
-      return res.status(500).json({ error: 'Fan nomini olishda xato' });
+      return res.status(500).json({ error: "Fan nomini olishda xato" });
     }
 
-    // Yig‘ilgan natijani qaytarish
+    // ✅ Hammasini qaytarish
     res.json({
-      subjectName: subject?.name || 'Nomaʼlum fan',
+      subjectName: subject?.name || "Nomaʼlum fan",
       resultSummary: result,
-      answers: answers || []
+      answers: answers || [],
     });
-
   } catch (err) {
-    res.status(500).json({ error: 'Server xatosi', details: err.message });
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Server xatosi" });
   }
 };
+
 
 
 const deleteQuestion = async (req, res) => {
