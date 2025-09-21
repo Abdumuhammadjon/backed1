@@ -305,15 +305,14 @@ console.log(answersToInsert);
 
 const getUserResults = async (req, res) => {
   try {
-      const userId = req.params.id;
+    const userId = req.params.id;
     const { subjectId } = req.query;
-    // console.log('userId:', userId, 'subjectId:', subjectId);
 
     if (!userId) {
       return res.status(400).json({ error: "Foydalanuvchi ID majburiy!" });
     }
 
-    // Supabase query
+    // 📌 results bilan answersni birga olish
     let query = supabase
       .from("results")
       .select(`
@@ -324,9 +323,17 @@ const getUserResults = async (req, res) => {
         total_questions,
         score_percentage,
         created_at,
-        users:users!user_id(username)
+        users:users!user_id(username),
+        answers (
+          id,
+          question_id,
+          user_answer,
+          correct_answer,
+          is_correct,
+          created_at
+        )
       `)
-      .eq("subject_id", subjectId)
+      .eq("user_id", userId) // faqat shu user natijalari
       .order("created_at", { ascending: false });
 
     if (subjectId) {
@@ -344,27 +351,31 @@ const getUserResults = async (req, res) => {
       return res.status(404).json({ message: "Natijalar topilmadi!" });
     }
 
+    // 📌 JSON formatlash
     const formattedResults = results.map(result => ({
       resultId: result.id,
-      userId: result.user_id, // <-- Bu qo'shildi
+      userId: result.user_id,
       subjectId: result.subject_id,
       correctAnswers: result.correct_answers,
       totalQuestions: result.total_questions,
       scorePercentage: `${result.score_percentage}%`,
       date: new Date(result.created_at).toLocaleString("uz-UZ"),
       username: result.users?.username || "Noma'lum",
+      answers: result.answers || [] // qo‘shildi ✅
     }));
 
     return res.status(200).json({
-        results: formattedResults,
+      results: formattedResults,
       totalResults: formattedResults.length,
       message: "Natijalar muvaffaqiyatli olindi!"
     });
+
   } catch (err) {
-      // console.error("Server xatosi:", err);
-      return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
-    }
-  };
+    console.error("Server xatosi:", err);
+    return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
+  }
+};
+
   
   
 const getUserResult = async (req, res) => {
