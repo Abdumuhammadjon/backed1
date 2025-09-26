@@ -1,5 +1,13 @@
 const { supabase } = require("../../config/supabaseClient");
 
+function sanitizeText(text) {
+  if (!text) return text;
+  return text
+    .replace(/'/g, "ʼ")
+    .replace(/"/g, "”")
+    .replace(/`/g, "´");
+}
+
 const saveQuestions = async (req, res) => {
   const { adminId, subjectId, questions } = req.body;
 
@@ -20,12 +28,15 @@ const saveQuestions = async (req, res) => {
 
     // Har bir savol va uning variantlarini bazaga kiritish
     for (const question of questions) {
+      // Savol matnini tozalash
+      const cleanQuestionText = sanitizeText(question.questionText);
+
       // Savolni kiritish
       const { data: questionData, error: questionError } = await supabase
         .from("questions")
         .insert([
           { 
-            question_text: question.questionText, 
+            question_text: cleanQuestionText, 
             admin_id: adminId, 
             subject_id: subjectId 
           }
@@ -39,10 +50,10 @@ const saveQuestions = async (req, res) => {
 
       const questionId = questionData.id;
 
-      // Variantlarni kiritish
+      // Variantlarni tozalash va kiritish
       const optionsToInsert = question.options.map(opt => ({
         question_id: questionId,
-        option_text: opt.text,
+        option_text: sanitizeText(opt.text),
         is_correct: opt.isCorrect,
       }));
 
