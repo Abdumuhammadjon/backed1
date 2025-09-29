@@ -195,58 +195,69 @@ const getQuestionsBySubject = async (req, res) => {
       return res.status(400).json({ error: "Foydalanuvchi ID va subjectId talab qilinadi!" });
     }
 
+    // 1️⃣ Barcha questionId va variantId larni to‘plash
+    const questionIds = answers.map(answer => answer.questionId);
+    const variantIds = answers.map(answer => answer.variantId);
+
+    // 2️⃣ Variantlarni bir so‘rovda olish
+    const { data: options, error: optionsError } = await supabase
+      .from("options")
+      .select("id, is_correct, option_text, question_id")
+      .in("id", variantIds);
+
+    if (optionsError) {
+      console.error("Variantlarni olishda xatolik:", optionsError);
+      return res.status(500).json({ error: "Variantlarni olishda xatolik!" });
+    }
+
+    // 3️⃣ Savollarni bir so‘rovda olish
+    const { data: questions, error: questionsError } = await supabase
+      .from("questions")
+      .select("id, question_text")
+      .in("id", questionIds);
+
+    if (questionsError) {
+      console.error("Savollarni olishda xatolik:", questionsError);
+      return res.status(500).json({ error: "Savollarni olishda xatolik!" });
+    }
+
+    // 4️⃣ To‘g‘ri javoblarni bir so‘rovda olish
+    const { data: correctOptions, error: correctOptionsError } = await supabase
+      .from("options")
+      .select("question_id, option_text")
+      .in("question_id", questionIds)
+      .eq("is_correct", true);
+
+    if (correctOptionsError) {
+      console.error("To‘g‘ri javoblarni olishda xatolik:", correctOptionsError);
+      return res.status(500).json({ error: "To‘g‘ri javoblarni olishda xatolik!" });
+    }
+
+    // Ma’lumotlarni tezkor qidirish uchun map qilish
+    const optionsMap = new Map(options.map(opt => [opt.id, opt]));
+    const questionsMap = new Map(questions.map(q => [q.id, q]));
+    const correctOptionsMap = new Map(correctOptions.map(opt => [opt.question_id, opt]));
+
     let correctCount = 0;
     const totalQuestions = answers.length;
-    const answersToInsert = [];
-
-    for (const answer of answers) {
+    const answersToInsert = answers.map(answer => {
       const { questionId, variantId } = answer;
-
-      // 1️⃣ Variantni tekshirish
-      const { data: option, error: optionError } = await supabase
-        .from("options")
-        .select("is_correct, option_text, question_id")
-        .eq("id", variantId)
-        .single();
-
-      if (optionError) {
-        console.error("Variantni tekshirishda xatolik:", optionError);
-        return res.status(500).json({ error: "Variantni tekshirishda xatolik!" });
-      }
-
-      // 2️⃣ Savol matnini olish
-      const { data: questionData, error: questionError } = await supabase
-        .from("questions")
-        .select("question_text")
-        .eq("id", questionId)
-        .single();
-
-      if (questionError) {
-        console.error("Savolni olishda xatolik:", questionError);
-        return res.status(500).json({ error: "Savolni olishda xatolik!" });
-      }
-
-      // 3️⃣ To‘g‘ri javobni olish
-      const { data: correctOpt } = await supabase
-        .from("options")
-        .select("option_text")
-        .eq("question_id", questionId)
-        .eq("is_correct", true)
-        .single();
+      const option = optionsMap.get(variantId);
+      const question = questionsMap.get(questionId);
+      const correctOption = correctOptionsMap.get(questionId);
 
       const isCorrect = option?.is_correct || false;
       if (isCorrect) correctCount++;
 
-      // 4️⃣ answers massiviga qo‘shish
-      answersToInsert.push({
+      return {
         question_id: questionId,
-        question_text: questionData?.question_text || null, // ✅ savol matni
-        user_answer: option?.option_text || null,           // ✅ foydalanuvchi javobi
-        correct_answer: correctOpt?.option_text || null,    // ✅ to‘g‘ri javob
+        question_text: question?.question_text || null,
+        user_answer: option?.option_text || null,
+        correct_answer: correctOption?.option_text || null,
         is_correct: isCorrect,
         created_at: new Date().toISOString(),
-      });
-    }
+      };
+    });
 
     const scorePercentage = ((correctCount / totalQuestions) * 100).toFixed(2);
 
@@ -272,12 +283,10 @@ const getQuestionsBySubject = async (req, res) => {
     }
 
     // 6️⃣ answers jadvaliga yozish
-  const answersWithResult = answersToInsert.map(answer => ({
-  ...answer,
-  result_id: result.id, // bu yerda result.id integer
-}));
-
-console.log(answersToInsert);
+    const answersWithResult = answersToInsert.map(answer => ({
+      ...answer,
+      result_id: result.id,
+    }));
 
     const { error: answersError } = await supabase
       .from("answers")
@@ -300,8 +309,6 @@ console.log(answersToInsert);
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
-
-
 
 const getUserResults = async (req, res) => {
   try {
