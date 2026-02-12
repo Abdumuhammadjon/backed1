@@ -92,8 +92,8 @@ const login = async (req, res) => {
     // 3️⃣ SUBJECTS jadvalidan admin ni tekshiramiz
     const { data: subject } = await supabase
       .from("subjects")
-      .select("admin")
-      .eq("admin", user.id)
+      .select("id")
+      .eq("id", user.id)
       .maybeSingle();
 
     // 4️⃣ Token yaratish
@@ -113,7 +113,7 @@ const login = async (req, res) => {
     return res.status(200).json({
       message: "Tizimga muvaffaqiyatli kirdingiz!",
       token,
-      admin_id: subject ? subject.admin_id : null
+      admin_id: subject ? subject.id : null
     });
 
   } catch (error) {
