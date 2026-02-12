@@ -71,7 +71,7 @@ const login = async (req, res) => {
     email = email.trim().toLowerCase();
     password = password.trim();
 
-    // 1️⃣ Foydalanuvchini topamiz
+    // 1️⃣ Userni topamiz
     const { data: user, error } = await supabase
       .from("users")
       .select("id, email, password, role")
@@ -82,31 +82,38 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Email yoki parol noto‘g‘ri!" });
     }
 
-    // 2️⃣ Parolni tekshiramiz
+    // 2️⃣ Parol tekshirish
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(400).json({ message: "Email yoki parol noto‘g‘ri!" });
     }
 
-    // 3️⃣ JWT token yaratamiz
+    // 3️⃣ SUBJECTS jadvalidan admin ni tekshiramiz
+    const { data: subject } = await supabase
+      .from("subjects")
+      .select("admin")
+      .eq("admin", user.id)
+      .maybeSingle();
+
+    // 4️⃣ Token yaratish
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // 4️⃣ Cookie yuboramiz
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // localhostda false
+      secure: false,
       sameSite: "Lax",
       maxAge: 3600000
     });
 
     return res.status(200).json({
       message: "Tizimga muvaffaqiyatli kirdingiz!",
-      token
+      token,
+      admin_id: subject ? subject.admin_id : null
     });
 
   } catch (error) {
