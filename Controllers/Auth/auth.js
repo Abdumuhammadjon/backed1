@@ -93,7 +93,7 @@ const login = async (req, res) => {
 // 3️⃣ subjects jadvalidan fanini tekshiramiz
 const { data: subject } = await supabase
   .from("subjects")
-  .select("id, name")
+  .select("id, admin")
   .eq("admin", user.id)   // MUHIM JOY
   .maybeSingle();
     
@@ -115,7 +115,7 @@ const { data: subject } = await supabase
   message: "Tizimga muvaffaqiyatli kirdingiz!",
   token,
   subject_id: subject ? subject.id : null,
-  subject_name: subject ? subject.name : null
+  adminId: subject ? subject.admin : null
 });
 
   } catch (error) {
