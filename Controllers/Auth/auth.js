@@ -93,7 +93,7 @@ const login = async (req, res) => {
     const { data: subject } = await supabase
       .from("subjects")
       .select("id")
-      .eq("id", user.id)
+      .eq("id", admin.id)
       .maybeSingle();
 
     // 4️⃣ Token yaratish
