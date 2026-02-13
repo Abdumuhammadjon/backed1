@@ -90,12 +90,13 @@ const login = async (req, res) => {
     }
 
     // 3️⃣ SUBJECTS jadvalidan admin ni tekshiramiz
-    const { data: subject } = await supabase
-      .from("subjects")
-      .select("id")
-      .eq("id", admin.id)
-      .maybeSingle();
-
+   
+const { data: subject } = await supabase
+  .from("subjects")
+  .select("id, name")
+  .eq("admin", user.id)   // MUHIM JOY
+  .maybeSingle();
+    
     // 4️⃣ Token yaratish
     const token = jwt.sign(
       { id: user.id, role: user.role },
@@ -111,10 +112,11 @@ const login = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: "Tizimga muvaffaqiyatli kirdingiz!",
-      token,
-      admin_id: subject ? subject.id : null
-    });
+  message: "Tizimga muvaffaqiyatli kirdingiz!",
+  token,
+  subject_id: subject ? subject.id : null,
+  subject_name: subject ? subject.name : null
+});
 
   } catch (error) {
     console.error("Login xatoligi:", error);
