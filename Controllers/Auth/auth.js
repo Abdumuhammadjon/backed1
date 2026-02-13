@@ -90,7 +90,7 @@ const login = async (req, res) => {
     }
 
     // 3️⃣ SUBJECTS jadvalidan admin ni tekshiramiz
-   
+// 3️⃣ subjects jadvalidan fanini tekshiramiz
 const { data: subject } = await supabase
   .from("subjects")
   .select("id, name")
