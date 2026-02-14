@@ -115,7 +115,8 @@ const { data: subject } = await supabase
   message: "Tizimga muvaffaqiyatli kirdingiz!",
   token,
   subject_id: subject ? subject.id : null,
-  adminId: subject ? subject.admin : null
+  adminId: subject ? subject.admin : null,
+  userId: user ? user.id : null
 });
 
   } catch (error) {
