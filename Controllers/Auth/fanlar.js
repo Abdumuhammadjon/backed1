@@ -189,45 +189,52 @@ const checkUserAnswers = async (req, res) => {
     if (!userId || !subjectId || !answers?.length)
       return res.status(400).json({ error: "Foydalanuvchi va javoblar kerak!" });
 
-    // Oldin javob berganmi
-    const { data: alreadyAnswered } = await supabase
-      .from("answers")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("subject_id", subjectId)
-      .maybeSingle();
-    if (alreadyAnswered)
-      return res.status(400).json({ message: "Siz allaqachon javob bergansiz" });
-
     const questionIds = answers.map(a => a.questionId);
     const variantIds = answers.map(a => a.variantId);
 
-    const { data: options } = await supabase
-      .from("options")
-      .select("id, is_correct, option_text, question_id")
-      .in("id", variantIds);
+    // 🔹 Foydalanuvchi oldin javob bergan savollarni tekshirish
+    const { data: existingAnswers } = await supabase
+      .from("answers")
+      .select("question_id")
+      .eq("user_id", userId)
+      .in("question_id", questionIds);
 
-    const { data: questions } = await supabase
-      .from("questions")
-      .select("id, question_text")
-      .in("id", questionIds);
+    if (existingAnswers?.length) {
+      const answeredQuestions = existingAnswers.map(a => a.question_id);
+      return res.status(400).json({
+        message: `Siz allaqachon javob bergan savollar: ${answeredQuestions.join(", ")}`,
+      });
+    }
 
-    const { data: correctOptions } = await supabase
-      .from("options")
-      .select("question_id, option_text")
-      .in("question_id", questionIds)
-      .eq("is_correct", true);
+    // 🔹 Variantlarni va savollarni olish
+    const [{ data: options }, { data: questions }, { data: correctOptions }] =
+      await Promise.all([
+        supabase
+          .from("options")
+          .select("id, is_correct, option_text, question_id")
+          .in("id", variantIds),
+        supabase
+          .from("questions")
+          .select("id, question_text")
+          .in("id", questionIds),
+        supabase
+          .from("options")
+          .select("question_id, option_text")
+          .in("question_id", questionIds)
+          .eq("is_correct", true),
+      ]);
 
     const optionsMap = new Map(options.map(o => [o.id, o]));
     const questionsMap = new Map(questions.map(q => [q.id, q]));
     const correctMap = new Map(correctOptions.map(o => [o.question_id, o]));
 
+    // 🔹 Javoblarni tayyorlash va to‘g‘ri javoblarni hisoblash
     let correctCount = 0;
     const answersToInsert = answers.map(a => {
       const option = optionsMap.get(a.variantId);
       const question = questionsMap.get(a.questionId);
       const correct = correctMap.get(a.questionId);
-      const isCorrect = option?.is_correct;
+      const isCorrect = option?.is_correct === true;
       if (isCorrect) correctCount++;
 
       return {
@@ -242,12 +249,10 @@ const checkUserAnswers = async (req, res) => {
       };
     });
 
-    await supabase.from("answers").insert(answersToInsert);
-
     const totalQuestions = answers.length;
     const scorePercentage = ((correctCount / totalQuestions) * 100).toFixed(2);
 
-    // Results jadvaliga yozish
+    // 🔹 Natijani results jadvaliga yozish va ID olish
     const { data: result } = await supabase
       .from("results")
       .insert([{
@@ -261,7 +266,7 @@ const checkUserAnswers = async (req, res) => {
       .select("id")
       .single();
 
-    // Javoblarga result_id qo‘shish
+    // 🔹 Javoblarga result_id qo‘shish
     const answersWithResult = answersToInsert.map(a => ({ ...a, result_id: result.id }));
     await supabase.from("answers").insert(answersWithResult);
 
@@ -269,7 +274,7 @@ const checkUserAnswers = async (req, res) => {
       totalQuestions,
       correctAnswers: correctCount,
       scorePercentage: `${scorePercentage}%`,
-      message: "Natija va barcha javoblar saqlandi!",
+      message: "Natija va barcha javoblar muvaffaqiyatli saqlandi!",
     });
 
   } catch (err) {
@@ -277,66 +282,6 @@ const checkUserAnswers = async (req, res) => {
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
-
-const getUserResults = async (req, res) => {
-  try {
-    const { subjectId } = req.query;
-
-    // ✅ Hamma natijalarni olish (foydalanuvchilar bo‘yicha)
-    let query = supabase
-      .from("results")
-      .select(`
-        id,
-        user_id,
-        subject_id,
-        correct_answers,
-        total_questions,
-        score_percentage,
-        created_at,
-        users(username),
-        answers(id, question_text, user_answer, correct_answer, is_correct, created_at)
-      `)
-      .order("created_at", { ascending: false });
-
-    if (subjectId) {
-      query = query.eq("subject_id", subjectId);
-    }
-
-    const { data: results, error } = await query;
-
-    if (error) {
-      console.error("Natijalarni olishda xatolik:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    if (!results || results.length === 0) {
-      return res.status(404).json({ message: "Natijalar topilmadi!" });
-    }
-
-    const formattedResults = results.map((result) => ({
-      resultId: result.id,
-      userId: result.user_id,
-      subjectId: result.subject_id,
-      correctAnswers: result.correct_answers,
-      totalQuestions: result.total_questions,
-      scorePercentage: result.score_percentage,
-      date: new Date(result.created_at).toLocaleString("uz-UZ"),
-      username: result.users?.username || "Noma'lum",
-      answers: result.answers || [],
-    }));
-
-    return res.status(200).json({
-      results: formattedResults,
-      totalResults: formattedResults.length,
-      message: "Hamma natijalar muvaffaqiyatli olindi!",
-    });
-  } catch (err) {
-    console.error("Server xatosi:", err);
-    return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
-  }
-};
-
-  
   
 const getUserResult = async (req, res) => {
   const { userId, subjectId } = req.query;
