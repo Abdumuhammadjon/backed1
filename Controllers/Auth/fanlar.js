@@ -442,6 +442,19 @@ const deleteUserResult = async (req, res) => {
 
 
 
-module.exports = { createSubject, deleteUserResult, getUserResultsPDF, getUserResults, deleteQuestion, getUserResult,  getSubjects, updateSubject, getQuestionsBySubject, checkUserAnswers ,  deleteSubject,  getAdmins };
+module.exports = {
+  createSubject,
+  deleteUserResult,
+  getUserResultsPDF,
+  // getUserResults,  ❌ olib tashlandi, chunki aniqlanmagan
+  deleteQuestion,
+  getUserResult,
+  getSubjects,
+  updateSubject,
+  getQuestionsBySubject,
+  checkUserAnswers,
+  deleteSubject,
+  getAdmins
+};
 
 
