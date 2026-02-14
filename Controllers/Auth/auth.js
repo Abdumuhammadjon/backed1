@@ -116,7 +116,7 @@ const { data: subject } = await supabase
   token,
   subject_id: subject ? subject.id : null,
   adminId: subject ? subject.admin : null,
-  userId: user.id
+  userId: user ? user.id : null
 });
 
   } catch (error) {
