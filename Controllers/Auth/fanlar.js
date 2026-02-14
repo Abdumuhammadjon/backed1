@@ -182,93 +182,120 @@ const getQuestionsBySubject = async (req, res) => {
   }
 };   // 3. Questions jadvalidan savollarni olish
 
-const checkUserAnswers = async (req, res) => {
+
+ const checkUserAnswers = async (req, res) => {
   try {
-    const { answers, subjectId, userId } = req.body;
+    const { answers, userId, subjectId } = req.body;
 
-    if (!userId || !subjectId || !answers?.length)
-      return res.status(400).json({ error: "Foydalanuvchi va javoblar kerak!" });
-
-    const questionIds = answers.map(a => a.questionId);
-    const variantIds = answers.map(a => a.variantId);
-
-    // 🔹 Foydalanuvchi oldin javob bergan savollarni tekshirish
-    const { data: existingAnswers } = await supabase
-      .from("answers")
-      .select("question_id")
-      .eq("user_id", userId)
-      .in("question_id", questionIds);
-
-    if (existingAnswers?.length) {
-      const answeredQuestions = existingAnswers.map(a => a.question_id);
-      return res.status(400).json({
-        message: `Siz allaqachon javob bergan savollar: ${answeredQuestions.join(", ")}`,
-      });
+    if (!answers || answers.length === 0) {
+      return res.status(400).json({ error: "Javoblar talab qilinadi!" });
     }
 
-    // 🔹 Variantlarni va savollarni olish
-    const [{ data: options }, { data: questions }, { data: correctOptions }] =
-      await Promise.all([
-        supabase
-          .from("options")
-          .select("id, is_correct, option_text, question_id")
-          .in("id", variantIds),
-        supabase
-          .from("questions")
-          .select("id, question_text")
-          .in("id", questionIds),
-        supabase
-          .from("options")
-          .select("question_id, option_text")
-          .in("question_id", questionIds)
-          .eq("is_correct", true),
-      ]);
+    if (!userId || !subjectId) {
+      return res.status(400).json({ error: "Foydalanuvchi ID va subjectId talab qilinadi!" });
+    }
 
-    const optionsMap = new Map(options.map(o => [o.id, o]));
+    // 1️⃣ Barcha questionId va variantId larni to‘plash
+    const questionIds = answers.map(answer => answer.questionId);
+    const variantIds = answers.map(answer => answer.variantId);
+
+    // 2️⃣ Variantlarni bir so‘rovda olish
+    const { data: options, error: optionsError } = await supabase
+      .from("options")
+      .select("id, is_correct, option_text, question_id")
+      .in("id", variantIds);
+
+    if (optionsError) {
+      console.error("Variantlarni olishda xatolik:", optionsError);
+      return res.status(500).json({ error: "Variantlarni olishda xatolik!" });
+    }
+
+    // 3️⃣ Savollarni bir so‘rovda olish
+    const { data: questions, error: questionsError } = await supabase
+      .from("questions")
+      .select("id, question_text")
+      .in("id", questionIds);
+
+    if (questionsError) {
+      console.error("Savollarni olishda xatolik:", questionsError);
+      return res.status(500).json({ error: "Savollarni olishda xatolik!" });
+    }
+
+    // 4️⃣ To‘g‘ri javoblarni bir so‘rovda olish
+    const { data: correctOptions, error: correctOptionsError } = await supabase
+      .from("options")
+      .select("question_id, option_text")
+      .in("question_id", questionIds)
+      .eq("is_correct", true);
+
+    if (correctOptionsError) {
+      console.error("To‘g‘ri javoblarni olishda xatolik:", correctOptionsError);
+      return res.status(500).json({ error: "To‘g‘ri javoblarni olishda xatolik!" });
+    }
+
+    // Ma’lumotlarni tezkor qidirish uchun map qilish
+    const optionsMap = new Map(options.map(opt => [opt.id, opt]));
     const questionsMap = new Map(questions.map(q => [q.id, q]));
-    const correctMap = new Map(correctOptions.map(o => [o.question_id, o]));
+    const correctOptionsMap = new Map(correctOptions.map(opt => [opt.question_id, opt]));
 
-    // 🔹 Javoblarni tayyorlash va to‘g‘ri javoblarni hisoblash
     let correctCount = 0;
-    const answersToInsert = answers.map(a => {
-      const option = optionsMap.get(a.variantId);
-      const question = questionsMap.get(a.questionId);
-      const correct = correctMap.get(a.questionId);
-      const isCorrect = option?.is_correct === true;
+    const totalQuestions = answers.length;
+    const answersToInsert = answers.map(answer => {
+      const { questionId, variantId } = answer;
+      const option = optionsMap.get(variantId);
+      const question = questionsMap.get(questionId);
+      const correctOption = correctOptionsMap.get(questionId);
+
+      const isCorrect = option?.is_correct || false;
       if (isCorrect) correctCount++;
 
       return {
-        user_id: userId,
-        subject_id: subjectId,
-        question_id: a.questionId,
-        question_text: question?.question_text,
-        user_answer: option?.option_text,
-        correct_answer: correct?.option_text,
+        question_id: questionId,
+        question_text: question?.question_text || null,
+        user_answer: option?.option_text || null,
+        correct_answer: correctOption?.option_text || null,
         is_correct: isCorrect,
         created_at: new Date().toISOString(),
       };
     });
 
-    const totalQuestions = answers.length;
     const scorePercentage = ((correctCount / totalQuestions) * 100).toFixed(2);
 
-    // 🔹 Natijani results jadvaliga yozish va ID olish
-    const { data: result } = await supabase
+    // 5️⃣ results jadvaliga yozish
+    const { data: result, error: saveError } = await supabase
       .from("results")
-      .insert([{
-        user_id: userId,
-        subject_id: subjectId,
-        correct_answers: correctCount,
-        total_questions: totalQuestions,
-        score_percentage: scorePercentage,
-        created_at: new Date().toISOString(),
-      }])
+      .insert([
+        {
+          user_id: userId,
+          subject_id: subjectId,
+          correct_answers: correctCount,
+          total_questions: totalQuestions,
+          score_percentage: scorePercentage,
+          created_at: new Date().toISOString(),
+        },
+      ])
       .select("id")
       .single();
 
-    // 🔹 Javoblarga result_id qo‘shish
-    const answersWithResult = answersToInsert.map(a => ({ ...a, result_id: result.id }));
-    await supabase.from("answers").insert(answersWithResult);
+    if (saveError) {
+      console.error("Natijani saqlashda xatolik:", saveError);
+      return res.status(500).json({ error: "Natijani saqlashda xatolik!" });
+    }
+
+    // 6️⃣ answers jadvaliga yozish
+    const answersWithResult = answersToInsert.map(answer => ({
+      ...answer,
+      result_id: result.id,
+    }));
+
+    const { error: answersError } = await supabase
+      .from("answers")
+      .insert(answersWithResult);
+
+    if (answersError) {
+      console.error("Answerlarni saqlashda xatolik:", answersError);
+      return res.status(500).json({ error: "Answerlarni saqlashda xatolik!" });
+    }
 
     return res.status(200).json({
       totalQuestions,
@@ -282,6 +309,66 @@ const checkUserAnswers = async (req, res) => {
     return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
   }
 };
+
+const getUserResults = async (req, res) => {
+  try {
+    const { subjectId } = req.query;
+
+    // ✅ Hamma natijalarni olish (foydalanuvchilar bo‘yicha)
+    let query = supabase
+      .from("results")
+      .select(`
+        id,
+        user_id,
+        subject_id,
+        correct_answers,
+        total_questions,
+        score_percentage,
+        created_at,
+        users(username),
+        answers(id, question_text, user_answer, correct_answer, is_correct, created_at)
+      `)
+      .order("created_at", { ascending: false });
+
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
+    }
+
+    const { data: results, error } = await query;
+
+    if (error) {
+      console.error("Natijalarni olishda xatolik:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ message: "Natijalar topilmadi!" });
+    }
+
+    const formattedResults = results.map((result) => ({
+      resultId: result.id,
+      userId: result.user_id,
+      subjectId: result.subject_id,
+      correctAnswers: result.correct_answers,
+      totalQuestions: result.total_questions,
+      scorePercentage: result.score_percentage,
+      date: new Date(result.created_at).toLocaleString("uz-UZ"),
+      username: result.users?.username || "Noma'lum",
+      answers: result.answers || [],
+    }));
+
+    return res.status(200).json({
+      results: formattedResults,
+      totalResults: formattedResults.length,
+      message: "Hamma natijalar muvaffaqiyatli olindi!",
+    });
+  } catch (err) {
+    console.error("Server xatosi:", err);
+    return res.status(500).json({ error: "Serverda xatolik yuz berdi!" });
+  }
+};
+
+  
   
 const getUserResult = async (req, res) => {
   const { userId, subjectId } = req.query;
@@ -442,19 +529,5 @@ const deleteUserResult = async (req, res) => {
 
 
 
-module.exports = {
-  createSubject,
-  deleteUserResult,
-  getUserResultsPDF,
-  // getUserResults,  ❌ olib tashlandi, chunki aniqlanmagan
-  deleteQuestion,
-  getUserResult,
-  getSubjects,
-  updateSubject,
-  getQuestionsBySubject,
-  checkUserAnswers,
-  deleteSubject,
-  getAdmins
-};
-
+module.exports = { createSubject, deleteUserResult, getUserResultsPDF, getUserResults, deleteQuestion, getUserResult,  getSubjects, updateSubject, getQuestionsBySubject, checkUserAnswers ,  deleteSubject,  getAdmins };
 
