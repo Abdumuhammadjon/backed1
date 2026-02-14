@@ -182,182 +182,94 @@ const getQuestionsBySubject = async (req, res) => {
   }
 };   // 3. Questions jadvalidan savollarni olish
 
-
 const checkUserAnswers = async (req, res) => {
   try {
     const { answers, subjectId, userId } = req.body;
 
-    
+    if (!userId || !subjectId || !answers?.length)
+      return res.status(400).json({ error: "Foydalanuvchi va javoblar kerak!" });
 
-    if (!userId || !subjectId) {
-      return res.status(400).json({
-        error: "Foydalanuvchi ID va subjectId talab qilinadi!"
-      });
-    }
-
-    if (!answers || !Array.isArray(answers) || answers.length === 0) {
-      return res.status(400).json({
-        error: "Javoblar talab qilinadi!"
-      });
-    }
-
-    // ✅ Avval tekshiramiz: foydalanuvchi oldin topshirganmi?
-    const { data: alreadyAnswered, error: checkError } = await supabase
+    // Oldin javob berganmi
+    const { data: alreadyAnswered } = await supabase
       .from("answers")
       .select("id")
       .eq("user_id", userId)
       .eq("subject_id", subjectId)
       .maybeSingle();
+    if (alreadyAnswered)
+      return res.status(400).json({ message: "Siz allaqachon javob bergansiz" });
 
-    if (checkError) {
-      return res.status(500).json({ error: "Tekshirishda xatolik!" });
-    }
-
-    if (alreadyAnswered) {
-      return res.status(400).json({
-        message: "Siz allaqachon javob bergansiz"
-      });
-    }
-
-    // 1️⃣ ID larni yig‘amiz
     const questionIds = answers.map(a => a.questionId);
     const variantIds = answers.map(a => a.variantId);
 
-    // 2️⃣ Variantlarni olish
-    const { data: options, error: optionsError } = await supabase
+    const { data: options } = await supabase
       .from("options")
       .select("id, is_correct, option_text, question_id")
       .in("id", variantIds);
 
-    if (optionsError) {
-      return res.status(500).json({
-        error: "Variantlarni olishda xatolik!"
-      });
-    }
-
-    // 3️⃣ Savollarni olish
-    const { data: questions, error: questionsError } = await supabase
+    const { data: questions } = await supabase
       .from("questions")
       .select("id, question_text")
       .in("id", questionIds);
 
-    if (questionsError) {
-      return res.status(500).json({
-        error: "Savollarni olishda xatolik!"
-      });
-    }
-
-    // 4️⃣ To‘g‘ri javoblarni olish
-    const { data: correctOptions, error: correctOptionsError } = await supabase
+    const { data: correctOptions } = await supabase
       .from("options")
       .select("question_id, option_text")
       .in("question_id", questionIds)
       .eq("is_correct", true);
 
-    if (correctOptionsError) {
-      return res.status(500).json({
-        error: "To‘g‘ri javoblarni olishda xatolik!"
-      });
-    }
-
-    // 🔥 Map qilish
     const optionsMap = new Map(options.map(o => [o.id, o]));
     const questionsMap = new Map(questions.map(q => [q.id, q]));
-    const correctOptionsMap = new Map(
-      correctOptions.map(o => [o.question_id, o])
-    );
+    const correctMap = new Map(correctOptions.map(o => [o.question_id, o]));
 
     let correctCount = 0;
-
-    const answersToInsert = answers.map(answer => {
-      const { questionId, variantId } = answer;
-
-      const option = optionsMap.get(variantId);
-      const question = questionsMap.get(questionId);
-      const correctOption = correctOptionsMap.get(questionId);
-
-      const isCorrect = option?.is_correct === true;
+    const answersToInsert = answers.map(a => {
+      const option = optionsMap.get(a.variantId);
+      const question = questionsMap.get(a.questionId);
+      const correct = correctMap.get(a.questionId);
+      const isCorrect = option?.is_correct;
       if (isCorrect) correctCount++;
 
       return {
         user_id: userId,
         subject_id: subjectId,
-        question_id: questionId,
-        question_text: question?.question_text || null,
-        user_answer: option?.option_text || null,
-        correct_answer: correctOption?.option_text || null,
+        question_id: a.questionId,
+        question_text: question?.question_text,
+        user_answer: option?.option_text,
+        correct_answer: correct?.option_text,
         is_correct: isCorrect,
         created_at: new Date().toISOString(),
       };
     });
 
-    // ✅ Javoblarni saqlash
-    const { error: insertError } = await supabase
-      .from("answers")
-      .insert(answersToInsert);
+    await supabase.from("answers").insert(answersToInsert);
 
-    if (insertError) {
-      return res.status(500).json({
-        error: "Javoblarni saqlashda xatolik!"
-      });
-    }
-
-    return res.json({
-      message: "Natija saqlandi",
-      totalQuestions: answers.length,
-      correctAnswers: correctCount,
-      wrongAnswers: answers.length - correctCount,
-    });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Server xatosi" });
-  }
-};
-
+    const totalQuestions = answers.length;
     const scorePercentage = ((correctCount / totalQuestions) * 100).toFixed(2);
 
-    // 5️⃣ results jadvaliga yozish
-    const { data: result, error: saveError } = await supabase
+    // Results jadvaliga yozish
+    const { data: result } = await supabase
       .from("results")
-      .insert([
-        {
-          user_id: userId,
-          subject_id: subjectId,
-          correct_answers: correctCount,
-          total_questions: totalQuestions,
-          score_percentage: scorePercentage,
-          created_at: new Date().toISOString(),
-        },
-      ])
+      .insert([{
+        user_id: userId,
+        subject_id: subjectId,
+        correct_answers: correctCount,
+        total_questions: totalQuestions,
+        score_percentage: scorePercentage,
+        created_at: new Date().toISOString(),
+      }])
       .select("id")
       .single();
 
-    if (saveError) {
-      console.error("Natijani saqlashda xatolik:", saveError);
-      return res.status(500).json({ error: "Natijani saqlashda xatolik!" });
-    }
-
-    // 6️⃣ answers jadvaliga yozish
-    const answersWithResult = answersToInsert.map(answer => ({
-      ...answer,
-      result_id: result.id,
-    }));
-
-    const { error: answersError } = await supabase
-      .from("answers")
-      .insert(answersWithResult);
-
-    if (answersError) {
-      console.error("Answerlarni saqlashda xatolik:", answersError);
-      return res.status(500).json({ error: "Answerlarni saqlashda xatolik!" });
-    }
+    // Javoblarga result_id qo‘shish
+    const answersWithResult = answersToInsert.map(a => ({ ...a, result_id: result.id }));
+    await supabase.from("answers").insert(answersWithResult);
 
     return res.status(200).json({
       totalQuestions,
       correctAnswers: correctCount,
       scorePercentage: `${scorePercentage}%`,
-      message: "Natija va barcha javoblar muvaffaqiyatli saqlandi!",
+      message: "Natija va barcha javoblar saqlandi!",
     });
 
   } catch (err) {
